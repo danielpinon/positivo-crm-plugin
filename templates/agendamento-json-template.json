@@ -1,0 +1,81 @@
+{
+    "responsavel": {
+        "cad_tipointeressado": {
+            "option": 0
+        },
+        "firstname": "{{responsavel_nome}}",
+        "lastname": "{{responsavel_sobrenome}}",
+        "emailaddress1": "{{responsavel_email}}",
+        "crm_unidadeinteresse": {
+            "id": "{{unidade_id}}"
+        },
+        "crm_servicoeducacionalinteresse": {
+            "id": "{{responsavel_serie_id}}"
+        },
+        "col_comoconheceu": {
+            "option": {{responsavel_como_conheceu}}
+        },
+        "pos_origem_positivo": {
+            "option": {{origem_positivo}}
+        },
+        "mobilephone": "{{responsavel_telefone}}"
+    },
+    "dependentes": [
+        {
+            "cad_tipointeressado": {
+                "option": 1
+            },
+            "firstname": "{{aluno_nome}}",
+            "lastname": "{{aluno_sobrenome}}",
+            "crm_unidadeinteresse": {
+                "id": "{{unidade_id}}"
+            },
+            "crm_servicoeducacionalinteresse": {
+                "id": "{{aluno_serie_id}}"
+            },
+            "col_anointeresse": {{aluno_ano_interesse}},
+            "crmeduc_escoladeorigem": "{{aluno_escola_origem}}"
+        }
+    ],
+    "atividadeServico": {
+        "serviceid": {
+            "id": "{{service_id}}"
+        },
+        "regardingobjectid": {
+            "id": "{{lead_id}}"
+        },
+        "col_responsavel": {
+            "id": "{{lead_id}}"
+        },
+        "pos_unidadecolegiopositivo": {
+            "id": "{{unidade_id}}"
+        },
+        "subject": "{{subject}}",
+        "scheduledstart": "{{scheduledstart}}",
+        "scheduledend": "{{scheduledend}}",
+        "description": "{{description}}"
+    },
+    "requisitoRecurso": {
+        "msdyn_name": "{{requisito_name}}",
+        "msdyn_fromdate": "{{scheduledstart}}",
+        "msdyn_todate": "{{scheduledend}}",
+        "msdyn_duration": {{duracao_minutos}},
+        "msdyn_effort": 1.0,
+        "msdyn_status": {
+            "option": {{msdyn_status}}
+        }
+    },
+    "reserva": {
+        "resource": {
+            "id": "{{resource_id}}"
+        },
+        "bookingstatus": {
+            "id": "{{booking_status_id}}"
+        },
+        "msdyn_estimatedarrivaltime": "{{estimatedarrivaltime}}",
+        "starttime": "{{scheduledstart}}",
+        "endtime": "{{scheduledend}}",
+        "duration": {{duracao_minutos}},
+        "msdyn_effort": 1.0
+    }
+}
