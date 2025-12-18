@@ -139,6 +139,8 @@ class Positivo_CRM_Admin
             $unidade_nome = sanitize_text_field($form['unidade_nome']);
         }
 
+        wp_dd(!empty($form['unidade_nome']));
+
         // 🔹 Fallback: buscar no CRM se não veio no form
         if (empty($unidade_nome) && !empty($unidade_id)) {
 
