@@ -59,6 +59,9 @@ class Positivo_CRM_Admin
         // Endpint para Buscar Colegios
         add_action('wp_ajax_nopriv_positivo_crm_search_eschool_public', [$this, 'positivo_crm_search_eschool_public']);
         add_action('wp_ajax_positivo_crm_search_eschool_public', [$this, 'positivo_crm_search_eschool_public']);
+
+        // Ajustes da tabela
+        add_action('plugins_loaded', [$this, 'ensure_duracao_visita_column']);
     }
 
     /**
@@ -614,13 +617,6 @@ class Positivo_CRM_Admin
         wp_send_json_success($response);
     }
 
-    private function wp_dd($data)
-    {
-        echo '<pre style="background:#111;color:#0f0;padding:15px;font-size:13px">';
-        var_dump($data);
-        echo '</pre>';
-        wp_die();
-    }
     /**
      * Endpoint AJAX para retornar horários disponíveis para um dia.
      *
@@ -662,7 +658,7 @@ class Positivo_CRM_Admin
         if (!empty($unit)) {
             $rows = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT hora_inicio, hora_fim FROM {$table_horarios}
+                    "SELECT hora_inicio, hora_fim, duracao_visita_minutos FROM {$table_horarios}
                     WHERE unidade = %s AND dia_semana = %s",
                     $unit,
                     $dia_semana
@@ -671,7 +667,7 @@ class Positivo_CRM_Admin
         } else {
             $rows = $wpdb->get_results(
                 $wpdb->prepare(
-                    "SELECT hora_inicio, hora_fim FROM {$table_horarios}
+                    "SELECT hora_inicio, hora_fim, duracao_visita_minutos FROM {$table_horarios}
                     WHERE dia_semana = %s",
                     $dia_semana
                 )
@@ -680,19 +676,63 @@ class Positivo_CRM_Admin
         if (!$rows) {
             wp_send_json_error(['message' => 'Nenhum horário configurado para este dia.']);
         }
+        // ----- AGENDAMENTOS OCUPADOS (CRM) -----
+        $intervalos_ocupados = [];
+        $api = new Positivo_CRM_API();
+        $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unit, $date);
+        if (
+            !is_wp_error($crm_agendamentos)
+            && isset($crm_agendamentos['result'])
+            && is_array($crm_agendamentos['result'])
+        ) {
+            foreach ($crm_agendamentos['result'] as $ag) {
+                if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
+                    continue;
+                }
+                try {
+                    $intervalos_ocupados[] = [
+                        'start' => new DateTime($ag['scheduledstart']),
+                        'end' => new DateTime($ag['scheduledend']),
+                    ];
+                } catch (Exception $e) {
+                    continue;
+                }
+            }
+        }
         // ----- GERAR HORÁRIOS DISPONÍVEIS -----
         $available_times = [];
         foreach ($rows as $row) {
             $start = DateTime::createFromFormat('H:i:s', $row->hora_inicio);
             $end = DateTime::createFromFormat('H:i:s', $row->hora_fim);
-            if (!$start || !$end)
+            if (!$start || !$end) {
                 continue;
-            $interval = new DateInterval('PT30M');
-            $period = new DatePeriod($start, $interval, $end);
-            foreach ($period as $t) {
-                $available_times[] = $t->format('H:i');
             }
-            $available_times[] = $end->format('H:i');
+            $duracao = max(15, intval($row->duracao_visita_minutos ?: 120));
+            $current = clone $start;
+            while (true) {
+                $slot_start = clone $current;
+                $slot_end = (clone $slot_start)->add(
+                    new DateInterval('PT' . $duracao . 'M')
+                );
+                if ($slot_end > $end) {
+                    break;
+                }
+                // 🔥 VERIFICA COLISÃO COM CRM
+                $colide = false;
+                foreach ($intervalos_ocupados as $ocupado) {
+                    if (
+                        $slot_start < $ocupado['end'] &&
+                        $slot_end > $ocupado['start']
+                    ) {
+                        $colide = true;
+                        break;
+                    }
+                }
+                if (!$colide) {
+                    $available_times[] = $slot_start->format('H:i');
+                }
+                $current = $slot_end;
+            }
         }
         // ----- BUSCAR AGENDAMENTOS EXISTENTES -----
         $agendados = $wpdb->get_col(
@@ -707,8 +747,10 @@ class Positivo_CRM_Admin
         $agendados = array_map(function ($h) {
             return substr($h, 0, 5);
         }, $agendados);
-        // ----- REMOVER HORÁRIOS JÁ AGENDADOS -----
-        $horarios_final = array_values(array_diff($available_times, $agendados));
+        // ----- UNIFICAR HORÁRIOS OCUPADOS (CRM + LOCAL) -----
+        $horarios_final = array_values(
+            array_diff($available_times, $agendados)
+        );
         if (empty($horarios_final)) {
             wp_send_json_error(['message' => 'Nenhum horário disponível.']);
         }
@@ -864,6 +906,38 @@ class Positivo_CRM_Admin
             }
         }
     }
+
+    /**
+     * Garante que a coluna duracao_visita_minutos exista na tabela de horários
+     */
+    private function ensure_duracao_visita_column()
+    {
+        global $wpdb;
+        $table = $wpdb->prefix . 'positivo_unidade_horarios';
+        // Verifica se a tabela existe
+        $table_exists = $wpdb->get_var(
+            $wpdb->prepare("SHOW TABLES LIKE %s", $table)
+        );
+        if ($table_exists !== $table) {
+            return;
+        }
+        // Verifica se a coluna existe
+        $column_exists = $wpdb->get_var(
+            $wpdb->prepare(
+                "SHOW COLUMNS FROM {$table} LIKE %s",
+                'duracao_visita_minutos'
+            )
+        );
+        if (empty($column_exists)) {
+            $wpdb->query("
+                ALTER TABLE {$table}
+                ADD COLUMN duracao_visita_minutos INT(11) DEFAULT 120
+                AFTER dia_semana
+            ");
+            Positivo_CRM_Logger::info('Coluna duracao_visita_minutos adicionada na tabela de horários');
+        }
+    }
+
 
     /**
      * Registra o menu principal e submenus para o plugin.
@@ -2327,13 +2401,19 @@ class Positivo_CRM_Admin
                         <th>Duração da Visita (min)</th>
                         <td>
                             <input type="number" name="duracao_visita_minutos" min="15" step="15"
-                                value="<?= esc_attr($edit_item->duracao_visita_minutos ?? 60) ?>" required>
+                                value="<?= esc_attr($edit_item->duracao_visita_minutos ?? 120) ?>" required>
                             <p class="description">Tempo de cada visita nesta unidade/dia</p>
                         </td>
                     </tr>
                 </table>
 
-                <?php submit_button($edit_item ? 'Atualizar Horário' : 'Criar Horário'); ?>
+                <?php
+                submit_button(
+                    $edit_item ? 'Atualizar Horário' : 'Criar Horário',
+                    'primary',
+                    'submit_horario_admin'
+                );
+                ?>
             </form>
 
             <hr>
