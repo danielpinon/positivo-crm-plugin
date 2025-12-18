@@ -1581,54 +1581,52 @@ echo <<<'JAVASCRIPT'
             unit: unidade
         })
         .done(function (resp) {
-
-            if (!resp.success || !Array.isArray(resp.data) || resp.data.length === 0) {
-                $container.html("<p>Nenhuma data disponível.</p>");
-                return;
-            }
-
-            let html = "";
-
-            resp.data.forEach(function (dia) {
-                const dataISO = dia.date;
-                const times = dia.times || [];
-
-                if (times.length === 0) return;
-
-                const d = new Date(dataISO + "T00:00:00");
-                const labelData = d.toLocaleDateString("pt-BR", {
-                    weekday: "short",
-                    day: "2-digit",
-                    month: "2-digit"
-                });
-
-                html += `
-                  <div class="agenda-dia">
-                    <div class="agenda-dia-label">${labelData}</div>
-                    <div class="horarios-grid">
-                `;
-
-                times.forEach(function (hora) {
-                    html += `
-                      <button
-                        type="button"
-                        class="time-slot"
-                        data-date="${dataISO}"
-                        data-time="${hora}"
-                      >
-                        ${hora}
-                      </button>
-                    `;
-                });
-
-                html += `
-                    </div>
+          // 🔥 CORREÇÃO PRINCIPAL AQUI
+          if (
+              !resp.success ||
+              !resp.data ||
+              !Array.isArray(resp.data.dates) ||
+              resp.data.dates.length === 0
+          ) {
+              $container.html("<p>Nenhuma data disponível.</p>");
+              return;
+          }
+          let html = "";
+          resp.data.dates.forEach(function (dia) {
+              const dataISO = dia.date;
+              const times = Array.isArray(dia.times) ? dia.times : [];
+              if (times.length === 0) return;
+              const d = new Date(dataISO + "T00:00:00");
+              const labelData = d.toLocaleDateString("pt-BR", {
+                  weekday: "short",
+                  day: "2-digit",
+                  month: "2-digit"
+              });
+              html += `
+                <div class="agenda-dia">
+                  <div class="agenda-dia-label">${labelData}</div>
+                  <div class="horarios-grid">
+              `;
+              times.forEach(function (hora) {
+                  html += `
+                    <button
+                      type="button"
+                      class="time-slot"
+                      data-date="${dataISO}"
+                      data-time="${hora}"
+                    >
+                      ${hora}
+                    </button>
+                  `;
+              });
+              html += `
                   </div>
-                `;
-            });
+                </div>
+              `;
+          });
+          $container.html(html);
+      })
 
-            $container.html(html);
-        })
         .fail(function () {
             $container.html("<p>Erro ao carregar agenda.</p>");
         });
