@@ -211,7 +211,7 @@ $css_content = '
 
   /* Barra "Nossos Colégios" (cidade / unidade) */
   .top-selects {
-    display: none;
+    display: block;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 24px;
@@ -1556,37 +1556,100 @@ echo <<<'JAVASCRIPT'
     /* ============================================================
       BUSCA DE ESCOLA DE ORIGEM (AUTOCOMPLETE)
     ============================================================ */
-    $('.escola-select').select2({
-      placeholder: 'Digite o nome da escola',
-      allowClear: true,
-      minimumInputLength: 3,
-      ajax: {
-          url: PositivoCRM.ajax_url,
-          type: 'POST',
-          delay: 500, // ⏱️ debounce NATIVO
-          data: function (params) {
-              return {
-                  action: 'positivo_crm_search_eschool_public',
-                  nonce: PositivoCRM.nonce,
-                  descricao: params.term
-              };
-          },
-          processResults: function (resp) {
-
-              if (!resp?.success || !resp?.data?.data) {
-                  return { results: [] };
-              }
-
-              return {
-                  results: resp.data.data.map(school => ({
-                      id: school.descricao,
-                      text: school.descricao
-                  }))
-              };
-          }
+    const select2PtBr = {
+      errorLoading: function () {
+          return 'Os resultados não puderam ser carregados.';
       },
-      tags: true, // 🔥 permite digitar escola manual
-    });
+      inputTooLong: function (args) {
+          const overChars = args.input.length - args.maximum;
+          return 'Apague ' + overChars + ' caractere(s).';
+      },
+      inputTooShort: function (args) {
+          const remainingChars = args.minimum - args.input.length;
+          return 'Por gentileza, adicione' + remainingChars + ' ou mais caractere(s).';
+      },
+      loadingMore: function () {
+          return 'Carregando mais resultados…';
+      },
+      maximumSelected: function (args) {
+          return 'Você só pode selecionar ' + args.maximum + ' item(ns).';
+      },
+      noResults: function () {
+          return 'Nenhuma escola encontrada.';
+      },
+      searching: function () {
+          return 'Buscando escolas…';
+      },
+      removeAllItems: function () {
+          return 'Remover todos os itens';
+      }
+    };
+    function initEscolaSelect($el) {
+      $el.select2({
+          placeholder: 'Digite o nome da escola',
+          allowClear: true,
+          minimumInputLength: 3,
+          language: select2PtBr,
+          ajax: {
+              url: PositivoCRM.ajax_url,
+              type: 'POST',
+              delay: 500,
+              data: function (params) {
+                  return {
+                      action: 'positivo_crm_search_eschool_public',
+                      nonce: PositivoCRM.nonce,
+                      descricao: params.term
+                  };
+              },
+              processResults: function (resp) {
+                  if (!resp?.success || !resp?.data?.data) {
+                      return { results: [] };
+                  }
+
+                  return {
+                      results: resp.data.data.map(school => ({
+                          id: school.descricao,
+                          text: school.descricao
+                      }))
+                  };
+              }
+          },
+          tags: true // permite digitar manualmente
+      });
+    }
+    initEscolaSelect($('.escola-select'));
+
+    // $('.escola-select').select2({
+    //   placeholder: 'Digite o nome da escola',
+    //   allowClear: true,
+    //   minimumInputLength: 3,
+    //   ajax: {
+    //       url: PositivoCRM.ajax_url,
+    //       type: 'POST',
+    //       delay: 500, // ⏱️ debounce NATIVO
+    //       data: function (params) {
+    //           return {
+    //               action: 'positivo_crm_search_eschool_public',
+    //               nonce: PositivoCRM.nonce,
+    //               descricao: params.term
+    //           };
+    //       },
+    //       processResults: function (resp) {
+
+    //           if (!resp?.success || !resp?.data?.data) {
+    //               return { results: [] };
+    //           }
+
+    //           return {
+    //               results: resp.data.data.map(school => ({
+    //                   id: school.descricao,
+    //                   text: school.descricao
+    //               }))
+    //           };
+    //       }
+    //   },
+    //   tags: true, // 🔥 permite digitar escola manual
+    // });
 
     /* ============================================================
       ANO DE MATRÍCULA (DINÂMICO)
@@ -1900,13 +1963,24 @@ echo <<<'JAVASCRIPT'
       const $container = $(this).siblings(".aluno-fields").first();
       const $clone = $container.clone();
 
-      // limpa campos
-      $clone.find("input").each(function () {
-        $(this).val("");
+      // 🔥 Remove Select2 antigo antes de clonar
+      $clone.find('.escola-select').each(function () {
+          if ($(this).hasClass("select2-hidden-accessible")) {
+              $(this).select2('destroy');
+          }
       });
 
+      // Limpa campos
+      $clone.find("input").val("");
+      $clone.find("select").val("");
+
+      // Insere no DOM
       $clone.insertBefore($(this));
+
+      // 🔥 Reaplica Select2 apenas no clone
+      initEscolaSelect($clone.find('.escola-select'));
     });
+
 
     /* ---------------------- EDITAR DADOS ---------------------- */
     $form.on("click", ".edit-dados", function (e) {
