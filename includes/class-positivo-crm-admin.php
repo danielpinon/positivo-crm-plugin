@@ -130,6 +130,7 @@ class Positivo_CRM_Admin
 
         // 🔹 Limpa { }
         $unidade_id = trim(str_replace(['{', '}'], '', sanitize_text_field($unidade_id_raw)));
+        $form['crm_unidadeinteresse'] = $unidade_id; // Atualiza no form
 
         // 🔹 Nome da unidade (tentativa 1: vindo do form)
         $unidade_nome = '';
