@@ -1947,9 +1947,14 @@ echo <<<'JAVASCRIPT'
 
         // ✅ GUID da unidade – prioridade: hidden, depois #unit-select
         var unidadeID =
-            jQuery("#cadCategoriaId").val() ||
-            jQuery("#unit-select").val() ||
+            $("#cadCategoriaId").val() ||
+            $("#unit-select").val() ||
             "";
+        if (!unidadeID) {
+            alert("Selecione uma unidade.");
+            return;
+        }
+
 
         // Serializa o formulário
         let data = $form.serialize();
