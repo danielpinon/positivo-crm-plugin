@@ -139,7 +139,6 @@ class Positivo_CRM_Admin
             $unidade_nome = sanitize_text_field($form['unidade_nome']);
         }
 
-        wp_dd(!empty($form['unidade_nome']));
 
         // 🔹 Fallback: buscar no CRM se não veio no form
         if (empty($unidade_nome) && !empty($unidade_id)) {
@@ -149,22 +148,16 @@ class Positivo_CRM_Admin
                 $response = $api->get_unidades();
                 if (
                     is_array($response)
-                    && isset($response['data']['result'])
-                    && is_array($response['data']['result'])
+                    && isset($response['result'])
+                    && is_array($response['result'])
                 ) {
-                    foreach ($response['data']['result'] as $unidade) {
+                    foreach ($response['result'] as $unidade) {
 
                         // Possíveis campos de ID no retorno
                         $crm_id_raw =
-                            $unidade['cad_categoriaid']
-                            ?? $unidade['msdyn_organizationalunitid']
-                            ?? $unidade['id']
-                            ?? '';
+                            $unidade['cad_categoriaid'] ?? '';
 
-                        // Limpa { }
-                        $crm_id = trim(str_replace(['{', '}'], '', $crm_id_raw));
-
-                        if ($crm_id === $unidade_id) {
+                        if ($crm_id_raw === $unidade_id) {
 
                             // Possíveis campos de nome
                             $unidade_nome = sanitize_text_field(
@@ -2353,8 +2346,6 @@ class Positivo_CRM_Admin
         if (!empty($utm_block)) {
             $utm_text = "Origem da Conversão: " . implode(" | ", $utm_block);
         }
-
-        wp_dd($agendamento);
 
 
         /*
