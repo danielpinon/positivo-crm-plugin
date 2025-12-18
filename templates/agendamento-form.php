@@ -1614,11 +1614,14 @@ echo <<<'JAVASCRIPT'
     };
     function initEscolaSelect(context = document) {
       $(context).find('.escola-select').each(function () {
-          if ($(this).hasClass('select2-hidden-accessible')) {
-              $(this).select2('destroy');
+          const $el = $(this);
+
+          // ✅ Só destrói se o Select2 EXISTIR de verdade
+          if ($el.data('select2')) {
+              $el.select2('destroy');
           }
 
-          $(this).select2({
+          $el.select2({
               placeholder: 'Digite o nome da escola',
               allowClear: true,
               minimumInputLength: 3,
@@ -1975,25 +1978,34 @@ echo <<<'JAVASCRIPT'
     /* ---------------------- ADD NOVO ALUNO ---------------------- */
     $form.on("click", ".add-aluno", function (e) {
       e.preventDefault();
+
       const $btn = $(this);
       const $container = $btn.siblings(".aluno-fields").first();
-      const $clone = $container.clone(false, false); // 🔥 clone limpo (sem eventos)
-      /* 🔥 DESTROI SELECT2 ANTES */
-      $clone.find('.escola-select').each(function () {
-          if ($(this).hasClass("select2-hidden-accessible")) {
-              $(this).select2('destroy');
-          }
-      });
-      /* 🔥 LIMPA CAMPOS */
+
+      // 🔥 clone limpo
+      const $clone = $container.clone(false, false);
+
+      // 🔥 REMOVE markup do Select2 que veio no clone
+      $clone.find('.select2').remove();
+      $clone.find('.escola-select')
+          .removeClass('select2-hidden-accessible')
+          .removeAttr('data-select2-id')
+          .val('');
+
+      // 🔥 LIMPA CAMPOS
       $clone.find("input").val("");
       $clone.find("select").val("").trigger("change");
-      /* 🔥 REMOVE IDs DUPLICADOS (MUITO IMPORTANTE) */
+
+      // 🔥 REMOVE IDs DUPLICADOS
       $clone.find("[id]").removeAttr("id");
-      /* 🔥 INSERE NO DOM */
+
+      // 🔥 INSERE NO DOM
       $clone.insertBefore($btn);
-      /* 🔥 REINICIALIZA SELECT2 SOMENTE NO CLONE */
+
+      // 🔥 INICIALIZA SELECT2 APENAS NO CLONE
       initEscolaSelect($clone);
     });
+
     /* ---------------------- EDITAR DADOS ---------------------- */
     $form.on("click", ".edit-dados", function (e) {
       e.preventDefault();
