@@ -930,13 +930,26 @@ $css_content = '
   }
 
   .select2-container--default .select2-selection--single {
-    height: 48px; /* igual ao input */
+    height: 48px !important; /* igual ao input */
     border: 1px solid #d0d0d0;
     border-radius: 6px;
     padding: 0 12px;
-    display: flex;
-    align-items: center;
+    display: flex !important;
+    align-items: center !important;
     font-size: 16px;
+  }
+  .select2-container .select2-selection--single {
+    height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .select2-selection__rendered {
+    line-height: normal !important;
+  }
+
+  .select2-selection__arrow {
+    height: 48px !important;
   }
 
   .select2-container--default .select2-selection--single
@@ -1587,39 +1600,42 @@ echo <<<'JAVASCRIPT'
           return 'Remover todos os itens';
       }
     };
-    function initEscolaSelect($el) {
-      $el.select2({
-          placeholder: 'Digite o nome da escola',
-          allowClear: true,
-          minimumInputLength: 3,
-          language: select2PtBr,
-          ajax: {
-              url: PositivoCRM.ajax_url,
-              type: 'POST',
-              delay: 500,
-              data: function (params) {
-                  return {
+    function initEscolaSelect(context = document) {
+      $(context).find('.escola-select').each(function () {
+          if ($(this).hasClass('select2-hidden-accessible')) {
+              $(this).select2('destroy');
+          }
+
+          $(this).select2({
+              placeholder: 'Digite o nome da escola',
+              allowClear: true,
+              minimumInputLength: 3,
+              language: {
+                  inputTooShort: () => 'Digite pelo menos 3 caracteres',
+                  noResults: () => 'Nenhuma escola encontrada',
+                  searching: () => 'Buscando...'
+              },
+              ajax: {
+                  url: PositivoCRM.ajax_url,
+                  type: 'POST',
+                  delay: 500,
+                  data: params => ({
                       action: 'positivo_crm_search_eschool_public',
                       nonce: PositivoCRM.nonce,
                       descricao: params.term
-                  };
+                  }),
+                  processResults: resp => ({
+                      results: resp?.data?.data?.map(s => ({
+                          id: s.descricao,
+                          text: s.descricao
+                      })) || []
+                  })
               },
-              processResults: function (resp) {
-                  if (!resp?.success || !resp?.data?.data) {
-                      return { results: [] };
-                  }
-
-                  return {
-                      results: resp.data.data.map(school => ({
-                          id: school.descricao,
-                          text: school.descricao
-                      }))
-                  };
-              }
-          },
-          tags: true // permite digitar manualmente
+              tags: true
+          });
       });
     }
+
     initEscolaSelect($('.escola-select'));
 
     // $('.escola-select').select2({
