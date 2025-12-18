@@ -2225,6 +2225,11 @@ echo <<<'JAVASCRIPT'
 
     });
 
+    $('#unit-select').on('change', function () {
+        const nome = $(this).find('option:selected').text();
+        $('#unidade_nome').val(nome);
+    });
+
   });
 })(jQuery);
 JAVASCRIPT;

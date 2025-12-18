@@ -112,7 +112,7 @@ class Positivo_CRM_Admin
         // Nome da unidade
         $unidade_nome = '';
         if (isset($form['crm_unidadeinteresse']) && isset($form['unit'])) {
-            $unidade_nome = sanitize_text_field($form['unit']);
+            $unidade_nome = sanitize_text_field($form['unidade_nome'] ?? '');
         }
 
         $dados = [
