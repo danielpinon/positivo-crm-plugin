@@ -211,7 +211,7 @@ $css_content = '
 
   /* Barra "Nossos Colégios" (cidade / unidade) */
   .top-selects {
-    display: none;
+    display: block;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 24px;
