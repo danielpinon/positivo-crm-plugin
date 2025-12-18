@@ -918,6 +918,56 @@ $css_content = '
     color: #444;
   }
 
+  /* =========================================================
+    SELECT2 – AJUSTE VISUAL PARA IGUALAR INPUT DO FORM
+  ========================================================= */
+
+  .select2-container {
+    width: 100% !important;
+  }
+
+  .select2-container--default .select2-selection--single {
+    height: 48px; /* igual ao input */
+    border: 1px solid #d0d0d0;
+    border-radius: 6px;
+    padding: 0 12px;
+    display: flex;
+    align-items: center;
+    font-size: 16px;
+  }
+
+  .select2-container--default .select2-selection--single
+  .select2-selection__rendered {
+    line-height: normal;
+    padding: 0;
+    color: #333;
+  }
+
+  .select2-container--default .select2-selection--single
+  .select2-selection__placeholder {
+    color: #999;
+  }
+
+  .select2-container--default .select2-selection--single
+  .select2-selection__arrow {
+    height: 100%;
+    right: 10px;
+  }
+
+  /* Foco (igual input) */
+  .select2-container--default.select2-container--focus
+  .select2-selection--single {
+    border-color: #f58220; /* laranja Positivo */
+    box-shadow: 0 0 0 1px rgba(245,130,32,.3);
+  }
+
+  /* Dropdown */
+  .select2-dropdown {
+    border-radius: 6px;
+    border-color: #d0d0d0;
+  }
+
+
 
 ';
 
@@ -1597,11 +1647,13 @@ echo <<<'JAVASCRIPT'
               const times = Array.isArray(dia.times) ? dia.times : [];
               if (times.length === 0) return;
               const d = new Date(dataISO + "T00:00:00");
-              const labelData = d.toLocaleDateString("pt-BR", {
-                  weekday: "short",
+              const labelData = d
+              .toLocaleDateString("pt-BR", {
+                  weekday: "long",
                   day: "2-digit",
                   month: "2-digit"
-              });
+              })
+              .toUpperCase();
               html += `
                 <div class="agenda-dia">
                   <div class="agenda-dia-label">${labelData}</div>
