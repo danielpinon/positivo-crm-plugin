@@ -1038,13 +1038,12 @@ $html_body = '
               </div>
               <div class="form-group escola-origem-group">
                 <label>Escola de Origem <span class="required">*</span></label>
-                <input
-                  type="text"
-                  class="escola-search"
-                  placeholder="Digite o nome da escola"
-                  autocomplete="off"
-                />
-                <select name="aluno_escola[]" class="escola-select data-select hidden" required></select>
+                <select
+                  class="escola-select"
+                  name="aluno_escola[]"
+                  data-placeholder="Digite o nome da escola"
+                  style="width:100%">
+                </select>
               </div>
               <div class="form-group form-row-2-small" style="display:flex; gap:16px; flex-wrap:wrap;">
                 <div style="flex:1 1 120px;">
@@ -1167,6 +1166,8 @@ $html_body = '
 // autenticados.
 
 // Emite o CSS em uma tag <style>
+
+echo '<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet"/>';
 echo '<style type="text/css">' . $css_content . '</style>';
 
 // O HTML do body é o que realmente será renderizado pelo shortcode.
@@ -1185,6 +1186,7 @@ echo 'var PositivoCRM = {
 };';
 echo '</script>';
 
+echo '<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>';
 // Agora o JS principal em um <script> separado
 echo '<script type="text/javascript">';
 echo <<<'JAVASCRIPT'
@@ -1468,76 +1470,49 @@ echo <<<'JAVASCRIPT'
       });
     });
 
+    function debounce(fn, delay = 400) {
+      let timer;
+      return function (...args) {
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+              fn.apply(this, args);
+          }, delay);
+      };
+    }
+
     /* ============================================================
       BUSCA DE ESCOLA DE ORIGEM (AUTOCOMPLETE)
     ============================================================ */
+    $('.escola-select').select2({
+      placeholder: 'Digite o nome da escola',
+      allowClear: true,
+      minimumInputLength: 3,
+      ajax: {
+          url: PositivoCRM.ajax_url,
+          type: 'POST',
+          delay: 500, // ⏱️ debounce NATIVO
+          data: function (params) {
+              return {
+                  action: 'positivo_crm_search_eschool_public',
+                  nonce: PositivoCRM.nonce,
+                  descricao: params.term
+              };
+          },
+          processResults: function (resp) {
 
-    $form.on("input", ".escola-search", function () {
-      const $input = $(this);
-      const query = $input.val().trim();
-      const $group = $input.closest(".escola-origem-group");
-      const $select = $group.find(".escola-select");
-
-      if (query.length < 3) {
-          $select.addClass("hidden").empty();
-          return;
-      }
-
-      $.post(PositivoCRM.ajax_url, {
-          action: "positivo_crm_search_eschool_public",
-          nonce: PositivoCRM.nonce,
-          descricao: query
-      })
-      .done(function (resp) {
-
-          // 🔒 Validação robusta do retorno
-          if (
-              !resp ||
-              !resp.success ||
-              !resp.data ||
-              !Array.isArray(resp.data.data) ||
-              resp.data.data.length === 0
-          ) {
-              // fallback: usar o texto digitado
-              $select
-                .html(`<option value="${query}">${query}</option>`)
-                .removeClass("hidden")
-                .val(query);
-              return;
-          }
-
-          let html = '<option value="">Selecione a escola</option>';
-
-          resp.data.data.forEach(function (school) {
-
-              // 🔥 Campo correto vindo da API
-              const nome = (school.descricao || "").trim();
-
-              if (nome) {
-                  html += `<option value="${nome}">${nome}</option>`;
+              if (!resp?.success || !resp?.data?.data) {
+                  return { results: [] };
               }
-          });
 
-          $select.html(html).removeClass("hidden");
-      })
-      .fail(function () {
-          // fallback em erro de rede
-          $select
-            .html(`<option value="${query}">${query}</option>`)
-            .removeClass("hidden")
-            .val(query);
-      });
-    });
-
-
-    /* Quando selecionar a escola, mantém visível e válida */
-    $form.on("change", ".escola-select", function () {
-        const $select = $(this);
-        const $group = $select.closest(".escola-origem-group");
-
-        $group.find(".escola-search").val(
-            $select.find("option:selected").text()
-        );
+              return {
+                  results: resp.data.data.map(school => ({
+                      id: school.descricao,
+                      text: school.descricao
+                  }))
+              };
+          }
+      },
+      tags: true, // 🔥 permite digitar escola manual
     });
 
     /* ============================================================
