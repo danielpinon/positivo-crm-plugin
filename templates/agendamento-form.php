@@ -1473,47 +1473,62 @@ echo <<<'JAVASCRIPT'
     ============================================================ */
 
     $form.on("input", ".escola-search", function () {
-        const $input = $(this);
-        const query = $input.val().trim();
-        const $group = $input.closest(".escola-origem-group");
-        const $select = $group.find(".escola-select");
+      const $input = $(this);
+      const query = $input.val().trim();
+      const $group = $input.closest(".escola-origem-group");
+      const $select = $group.find(".escola-select");
 
-        if (query.length < 3) {
-            $select.addClass("hidden").empty();
-            return;
-        }
+      if (query.length < 3) {
+          $select.addClass("hidden").empty();
+          return;
+      }
 
-        $.post(PositivoCRM.ajax_url, {
-            action: "positivo_crm_search_eschool_public",
-            nonce: PositivoCRM.nonce,
-            descricao: query
-        })
-        .done(function (resp) {
-            if (!resp.success || !Array.isArray(resp.data) || resp.data.length === 0) {
-                $select
-                  .html('<option value="' + query + '">' + query + '</option>')
-                  .removeClass("hidden");
-                return;
-            }
+      $.post(PositivoCRM.ajax_url, {
+          action: "positivo_crm_search_eschool_public",
+          nonce: PositivoCRM.nonce,
+          descricao: query
+      })
+      .done(function (resp) {
 
-            let html = '<option value="">Selecione a escola</option>';
+          // 🔒 Validação robusta do retorno
+          if (
+              !resp ||
+              !resp.success ||
+              !resp.data ||
+              !Array.isArray(resp.data.data) ||
+              resp.data.data.length === 0
+          ) {
+              // fallback: usar o texto digitado
+              $select
+                .html(`<option value="${query}">${query}</option>`)
+                .removeClass("hidden")
+                .val(query);
+              return;
+          }
 
-            resp.data.forEach(function (school) {
-                const nome =
-                    school.name ||
-                    school.nome ||
-                    school.fullname ||
-                    school.cad_name ||
-                    "";
+          let html = '<option value="">Selecione a escola</option>';
 
-                if (nome) {
-                    html += `<option value="${nome}">${nome}</option>`;
-                }
-            });
+          resp.data.data.forEach(function (school) {
 
-            $select.html(html).removeClass("hidden");
-        });
+              // 🔥 Campo correto vindo da API
+              const nome = (school.descricao || "").trim();
+
+              if (nome) {
+                  html += `<option value="${nome}">${nome}</option>`;
+              }
+          });
+
+          $select.html(html).removeClass("hidden");
+      })
+      .fail(function () {
+          // fallback em erro de rede
+          $select
+            .html(`<option value="${query}">${query}</option>`)
+            .removeClass("hidden")
+            .val(query);
+      });
     });
+
 
     /* Quando selecionar a escola, mantém visível e válida */
     $form.on("change", ".escola-select", function () {
