@@ -1654,7 +1654,7 @@ echo <<<'JAVASCRIPT'
         $.post(PositivoCRM.ajax_url, {
             action: "positivo_crm_get_next_available_dates",
             nonce: PositivoCRM.nonce,
-            unit: unidade
+            unit: unidadeID
         })
         .done(function (resp) {
           // 🔥 CORREÇÃO PRINCIPAL AQUI
