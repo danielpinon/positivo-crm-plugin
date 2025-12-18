@@ -1331,13 +1331,19 @@ echo <<<'JAVASCRIPT'
 
 
     // ===================== Parametro de Unidade =====================
-    $('#unit-select').on('change', function () {
-        const nome = $(this).find('option:selected').text().trim();
-        const id   = $(this).val();
+    $('#unit-select').off('change').on('change', function () {
+        const $opt = $(this).find('option:selected');
 
-        $('#cadCategoriaId').val(id);
-        $('#unidade_nome').val(nome);
+        const unidadeId   = $(this).val() || '';
+        const unidadeNome = $opt.text().trim() || '';
+
+        // 🔑 fonte única
+        $('#cadCategoriaId').val(unidadeId);
+
+        // guarda o nome como data-attribute (não precisa input hidden)
+        $('#cadCategoriaId').data('unidade-nome', unidadeNome);
     });
+
 
     // ===================== LISTA DE ALUNOS =====================
 
@@ -1632,11 +1638,14 @@ echo <<<'JAVASCRIPT'
     ============================================================ */
 
     function carregarProximosDias() {
-        const unidade = $('#cadCategoriaId').val();
+        var unidadeID =
+          $("#cadCategoriaId").val() ||
+          $("#unit-select").val() ||
+          "";
 
-        if (!unidade) {
-            alert("Selecione uma unidade primeiro.");
-            return;
+        if (!unidadeID) {
+          alert("Selecione uma unidade.");
+          return;
         }
 
         const $container = $("#agendaDias");
