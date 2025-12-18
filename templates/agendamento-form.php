@@ -977,6 +977,11 @@ $css_content = '
     box-shadow: 0 0 0 1px rgba(245,130,32,.3);
   }
 
+  .select2-results__option,
+  .select2-selection__rendered{
+    font-weight: initial !important;
+  }
+
   /* Dropdown */
   .select2-dropdown {
     border-radius: 6px;
@@ -1568,7 +1573,6 @@ echo <<<'JAVASCRIPT'
           }, delay);
       };
     }
-
     /* ============================================================
       BUSCA DE ESCOLA DE ORIGEM (AUTOCOMPLETE)
     ============================================================ */
@@ -1635,9 +1639,7 @@ echo <<<'JAVASCRIPT'
           });
       });
     }
-
     initEscolaSelect($('.aluno-fields').first());
-
     // $('.escola-select').select2({
     //   placeholder: 'Digite o nome da escola',
     //   allowClear: true,
@@ -1669,11 +1671,9 @@ echo <<<'JAVASCRIPT'
     //   },
     //   tags: true, // 🔥 permite digitar escola manual
     // });
-
     /* ============================================================
       ANO DE MATRÍCULA (DINÂMICO)
     ============================================================ */
-
     function preencherAnoMatricula($select) {
         const now = new Date();
         const anoAtual = now.getFullYear();
@@ -1698,12 +1698,10 @@ echo <<<'JAVASCRIPT'
 
         $select.html(html);
     }
-
     // Inicialização
     $(".ano-matricula-select").each(function () {
         preencherAnoMatricula($(this));
     });
-
     // Quando adicionar novo aluno dinamicamente
     $form.on("click", ".add-aluno", function () {
         setTimeout(() => {
@@ -1714,11 +1712,9 @@ echo <<<'JAVASCRIPT'
             });
         }, 50);
     });
-
     /* ============================================================
       CARREGAR PRÓXIMOS 5 DIAS DISPONÍVEIS
     ============================================================ */
-
     function carregarProximosDias() {
         var unidadeID =
           $("#cadCategoriaId").val() ||
@@ -1786,12 +1782,10 @@ echo <<<'JAVASCRIPT'
           });
           $container.html(html);
       })
-
         .fail(function () {
             $container.html("<p>Erro ao carregar agenda.</p>");
         });
     }
-
     /* ============================================================
       SELEÇÃO DE HORÁRIO
     ============================================================ */
@@ -1809,15 +1803,9 @@ echo <<<'JAVASCRIPT'
           .forEach(el => el.classList.remove('active'));
       slot.classList.add('active');
     });
-
-
-
-
-
     // ====================
     // RESTANTE DO JS: SUBMIT AGENDAMENTO, LOAD SERIES, LOAD TIMES...
     // ====================
-
     function loadUnits() {
       $.ajax({
         url: PositivoCRM.ajax_url,
@@ -1872,7 +1860,6 @@ echo <<<'JAVASCRIPT'
         }
       });
     }
-
     // Carrega as séries escolares da API
     function loadSeries() {
       $.ajax({
@@ -1918,7 +1905,6 @@ echo <<<'JAVASCRIPT'
         }
       });
     }
-
     $form.on("change", "#agendamentoData", function() {
       const selectedDate = $(this).val();
       const selectedUnit = $unitSelect.val();
@@ -1962,15 +1948,12 @@ echo <<<'JAVASCRIPT'
         }
       });
     });
-
     /* ============================================================
       FUNÇÕES QUE ESTAVAM FALTANDO NO CÓDIGO NOVO
       ============================================================ */
-
     /* ---------------------- VALIDAR ETAPA ---------------------- */
     function validateStep(step) {
       let isValid = true;
-
       $form.find(`.step-view[data-step="${step}"]`).find("[required]").each(function () {
         if (!$(this).val()) {
           isValid = false;
@@ -1979,10 +1962,8 @@ echo <<<'JAVASCRIPT'
           $(this).removeClass("error-field");
         }
       });
-
       return isValid;
     }
-
     /* ---------------------- ADD NOVO ALUNO ---------------------- */
     $form.on("click", ".add-aluno", function (e) {
       e.preventDefault();
@@ -2005,9 +1986,6 @@ echo <<<'JAVASCRIPT'
       /* 🔥 REINICIALIZA SELECT2 SOMENTE NO CLONE */
       initEscolaSelect($clone);
     });
-
-
-
     /* ---------------------- EDITAR DADOS ---------------------- */
     $form.on("click", ".edit-dados", function (e) {
       e.preventDefault();
@@ -2015,7 +1993,6 @@ echo <<<'JAVASCRIPT'
       $("#studentsBox").addClass("hidden");
       $(".step-3-manual").removeClass("hidden");
     });
-
     /* ---------------------- JÁ É ALUNO? ---------------------- */
     $("input[name='ja_aluno']").on("change", function () {
       if ($(this).val() === "sim") {
@@ -2024,27 +2001,21 @@ echo <<<'JAVASCRIPT'
         $(".alunos-lista").addClass("hidden");
       }
     });
-
     /* ---------------------- ATUALIZAR SÉRIE ---------------------- */
     $form.on("change", ".serie-select", function () {
       const $select = $(this);
       const selected = $select.find("option:selected");
       const serieName = selected.data("name") || selected.text();
-
       $select.closest(".form-group, div").find(".serie-name").val(serieName);
-
       if ($select.attr("id") === "responsavel_serie_id") {
         $("#responsavel_serie").val(serieName);
       }
     });
-
     /* ---------------------- SUBMIT DO AGENDAMENTO ---------------------- */
     $form.on("submit", function (e) {
         e.preventDefault();
-
         $("#agendamento-loading-overlay").removeClass("hidden").fadeIn(150);
         $("#submitAgendamento").prop("disabled", true).text("Enviando...");
-
         // ✅ GUID da unidade – prioridade: hidden, depois #unit-select
         var unidadeID =
             $("#cadCategoriaId").val() ||
@@ -2054,11 +2025,8 @@ echo <<<'JAVASCRIPT'
             alert("Selecione uma unidade.");
             return;
         }
-
-
         // Serializa o formulário
         let data = $form.serialize();
-
         // Se já existir crm_unidadeinteresse no serialize, substitui pelo GUID correto
         if (data.includes("crm_unidadeinteresse=")) {
             data = data.replace(
@@ -2069,7 +2037,6 @@ echo <<<'JAVASCRIPT'
             // Senão, adiciona o campo no final
             data += (data ? "&" : "") + "crm_unidadeinteresse=" + encodeURIComponent(unidadeID);
         }
-
         $.post(PositivoCRM.ajax_url, {
             action: "positivo_crm_submit_agendamento_public",
             nonce: PositivoCRM.nonce,
@@ -2079,12 +2046,10 @@ echo <<<'JAVASCRIPT'
         })
         .done(function (resp) {
             $("#agendamento-loading-overlay").fadeOut(200);
-
             if (!resp.success) {
                 alert(resp.data.message || "Erro no agendamento.");
                 return;
             }
-
             mostrarModalSucesso(resp.data.agendamento);
         })
         .fail(function () {
@@ -2157,264 +2122,112 @@ echo <<<'JAVASCRIPT'
  */
 
 (function ($) {
-  $(document).ready(function () {
+  
+  // Estado global
+  window.syncEscola = {
+    cidade: null,
+    unidade: null
+  };
 
-    /**
-     * Dispara eventos nativos do DOM em um elemento.
-     * @param {HTMLElement} element Elemento alvo
-     * @param {string} event Nome do evento (ex.: "change")
-     */
-    function fireEvent(element, event) {
-      if (!element) return;
-      element.dispatchEvent(new Event(event, { bubbles: true }));
+  // ===============================
+  // 1️⃣ Captura seleção do Jet
+  // ===============================
+  document.addEventListener('change', function (e) {
+
+    if (!e.target.closest('.seleciona-escola select')) return;
+
+    const select = e.target;
+    const option = select.options[select.selectedIndex];
+
+    if (select.name === 'cidade') {
+      window.syncEscola.cidade = option.text;
+      console.log('🏙️ Cidade capturada:', option.text);
+      tentarPreencherFormulario();
     }
 
-    /**
-     * Normaliza uma string para facilitar comparações:
-     * - converte para minúsculas
-     * - remove acentos/diacríticos【352587465888300†L1044-L1053】
-     * - remove travessões e hifens
-     * - remove o prefixo "Colégio Positivo"
-     * - remove espaços extras
-     *
-     * Essa função permite que o texto do filtro JetEngine (ex.: "Água Verde")
-     * seja comparado com o texto das opções do formulário (ex.: "Colégio
-     * Positivo – Água Verde").
-     *
-     * @param {string} str Texto a normalizar
-     * @returns {string} Texto normalizado
-     */
-    function normalizeText(str) {
-      return (str || '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '') // remove acentos【352587465888300†L1044-L1053】
-        .replace(/–|-|—/g, '')           // remove travessões e hifens
-        .replace(/col[eé]gio\s+positivo\s*/i, '') // remove prefixo
-        .trim();
+    if (select.name === 'colegio') {
+      window.syncEscola.unidade = option.text;
+      console.log('🏫 Unidade capturada:', option.text);
+      tentarPreencherFormulario();
     }
-
-    /**
-     * Seleciona uma opção de um <select> com base em texto. Primeiro tenta
-     * fazer uma correspondência exata usando o texto normalizado; se não
-     * encontrar, procura uma correspondência parcial (inclui()).
-     *
-     * @param {HTMLSelectElement} selectEl Select alvo no formulário
-     * @param {string} textoJet Texto visível selecionado no JetEngine
-     * @returns {boolean} true se encontrou uma opção correspondente
-     */
-    function selectOptionByPartialText(selectEl, textoJet) {
-      if (!selectEl || !textoJet) return false;
-      const target = normalizeText(textoJet);
-      const options = Array.from(selectEl.options || []);
-
-      // Primeiro tenta match exato no texto normalizado
-      let found = options.find(opt => normalizeText(opt.textContent) === target);
-
-      // Caso contrário, tenta match parcial (contém)
-      if (!found) {
-        found = options.find(opt => normalizeText(opt.textContent).includes(target));
-      }
-
-      if (found) {
-        selectEl.value = found.value;
-        selectEl.selectedIndex = options.indexOf(found);
-        return true;
-      }
-      return false;
-    }
-
-    /**
-     * Coleta e devolve os principais elementos da página.
-     * @returns {Object}
-     */
-    function getElements() {
-      return {
-        cidadeSite: document.querySelector('.seleciona-escola select[name="cidade"]'),
-        unidadeSite: document.querySelector('.seleciona-escola select[name="colegio"]'),
-        cidadeForm: document.querySelector('#city-select'),
-        unidadeForm: document.querySelector('#unit-select'),
-        formWrapper: document.querySelector('.form-card'),
-        hiddenId: document.querySelector('#cadCategoriaId')
-      };
-    }
-
-    /**
-     * Desabilita todos os campos do formulário (exceto os selects do topo)
-     * adicionando a classe .form-blocked e definindo disabled. Usado para
-     * impedir o envio enquanto cidade/unidade não estiverem selecionados.
-     */
-    function bloquearFormulario() {
-      const els = getElements();
-      if (!els.formWrapper) return;
-      els.formWrapper.classList.add('form-blocked');
-      const inputs = els.formWrapper.querySelectorAll('input, select, button, textarea');
-      inputs.forEach(el => {
-        if (!el.closest('.top-selects')) {
-          el.setAttribute('disabled', 'disabled');
-        }
-      });
-    }
-
-    /**
-     * Reativa os campos do formulário removendo a classe .form-blocked e o
-     * atributo disabled.
-     */
-    function desbloquearFormulario() {
-      const els = getElements();
-      if (!els.formWrapper) return;
-      els.formWrapper.classList.remove('form-blocked');
-      const inputs = els.formWrapper.querySelectorAll('input, select, button, textarea');
-      inputs.forEach(el => {
-        el.removeAttribute('disabled');
-      });
-    }
-
-    /**
-     * Verifica se cidade e unidade foram selecionadas no filtro JetEngine.
-     * Se ambos estiverem selecionados, libera o formulário; caso contrário,
-     * bloqueia.
-     */
-    function verificarLiberacao() {
-      const els = getElements();
-      const cidadeOk = els.cidadeSite && els.cidadeSite.value && els.cidadeSite.value !== '';
-      const unidadeOk = els.unidadeSite && els.unidadeSite.value && els.unidadeSite.value !== '';
-      if (cidadeOk && unidadeOk) {
-        desbloquearFormulario();
-      } else {
-        bloquearFormulario();
-      }
-    }
-
-    // Controle de reentrância/debounce para sincronização
-    let syncTimer = null;
-    let lastSelection = { cidade: '', unidade: '' };
-    let isSyncing = false;
-
-    /**
-     * Debounce simples que aguarda 200 ms antes de chamar syncToForm().
-     * Isso impede loops e chamadas redundantes durante atualizações de Ajax
-     * do JetEngine.
-     */
-    function debounceSync() {
-      clearTimeout(syncTimer);
-      syncTimer = setTimeout(syncToForm, 200);
-    }
-
-    /**
-     * Aguarda até que o select de unidade do formulário possua opções
-     * (ou seja, até que o JetEngine carregue as opções via Ajax).
-     * @param {Function} callback Função a ser chamada após o carregamento
-     */
-    function waitForUnitOptions(callback) {
-      const els = getElements();
-      if (els.unidadeForm && els.unidadeForm.options.length > 1) {
-        callback();
-      } else {
-        setTimeout(() => waitForUnitOptions(callback), 100);
-      }
-    }
-
-    /**
-     * Sincroniza as seleções do JetEngine com os selects do formulário.
-     * Esta função lê os valores e textos selecionados em `cidadeSite` e
-     * `unidadeSite`, normaliza-os e tenta marcar `city-select` e `unit-select`.
-     * Também preenche o campo oculto hiddenId com o GUID da unidade. Em caso
-     * de mudanças assíncronas no JetEngine (quando as opções de unidade
-     * demoram a carregar), a função espera até que existam opções antes de
-     * tentar a seleção.
-     */
-    function syncToForm() {
-      const els = getElements();
-      // Certifica que todos os elementos necessários estão presentes
-      if (!els.cidadeSite || !els.unidadeSite || !els.cidadeForm || !els.unidadeForm || !els.hiddenId) return;
-      if (isSyncing) return; // evita reentrância
-      isSyncing = true;
-      try {
-        const cidadeTexto = els.cidadeSite.selectedOptions?.[0]?.textContent?.trim() || '';
-        const unidadeTexto = els.unidadeSite.selectedOptions?.[0]?.textContent?.trim() || '';
-        // Se nada mudou desde a última sincronização, não faz nada
-        if (cidadeTexto === lastSelection.cidade && unidadeTexto === lastSelection.unidade) {
-          return;
-        }
-        lastSelection.cidade = cidadeTexto;
-        lastSelection.unidade = unidadeTexto;
-        // Sincroniza cidade
-        if (cidadeTexto && els.cidadeForm.value !== cidadeTexto) {
-          els.cidadeForm.value = cidadeTexto;
-          fireEvent(els.cidadeForm, 'change');
-        }
-        // Sincroniza unidade
-        if (unidadeTexto) {
-          els.unidadeForm.removeAttribute('disabled');
-          // Aguarda o carregamento das opções do select oculto
-          waitForUnitOptions(() => {
-            const ok = selectOptionByPartialText(els.unidadeForm, unidadeTexto);
-            if (ok) {
-              els.hiddenId.value = els.unidadeForm.value || '';
-              fireEvent(els.unidadeForm, 'change');
-            } else {
-              els.hiddenId.value = '';
-            }
-            verificarLiberacao();
-          });
-        } else {
-          els.hiddenId.value = '';
-          verificarLiberacao();
-        }
-      } finally {
-        setTimeout(() => {
-          isSyncing = false;
-        }, 250);
-      }
-    }
-
-    /**
-     * Associa listeners aos selects do JetEngine para disparar a sincronização
-     * via debounce. Como as opções são carregadas dinamicamente, estes
-     * listeners são vinculados assim que o DOM está pronto.
-     */
-    function attachListeners() {
-      const els = getElements();
-      if (els.cidadeSite) els.cidadeSite.addEventListener('change', debounceSync);
-      if (els.unidadeSite) els.unidadeSite.addEventListener('change', debounceSync);
-    }
-
-    /**
-     * Obtém parâmetros de URL (usado para popular UTMs).
-     * @param {string} name Nome do parâmetro
-     * @returns {string|null} Valor do parâmetro
-     */
-    function getParam(name) {
-      return new URLSearchParams(window.location.search).get(name);
-    }
-
-    // Evento DOMContentLoaded para iniciar o processo
-    document.addEventListener('DOMContentLoaded', () => {
-      // Bloqueia o formulário inicialmente
-      bloquearFormulario();
-      // Aguarda um tempo para garantir que JetEngine carregou
-      setTimeout(() => {
-        attachListeners();
-        syncToForm();
-        // Copia UTMs para campos ocultos e cookies
-        ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(k => {
-          const v = getParam(k);
-          if (v) {
-            document.querySelector(`input[name="${k}"]`)?.setAttribute('value', v);
-            document.cookie = `${k}=${v}; path=/; max-age=2592000`; // 30 dias
-          }
-        });
-      }, 800);
-    });
-
-    // Quando o select oculto de unidade muda, atualiza o campo de nome da unidade
-    $('#unit-select').on('change', function () {
-      const nome = $(this).find('option:selected').text();
-      $('#unidade_nome').val(nome);
-    });
-
   });
+
+  // ===============================
+  // 2️⃣ Função que espera o formulário
+  // ===============================
+  function esperarElemento(selector, callback, timeout = 10000) {
+    const inicio = Date.now();
+
+    const timer = setInterval(() => {
+      const el = document.querySelector(selector);
+
+      if (el) {
+        clearInterval(timer);
+        callback(el);
+      }
+
+      if (Date.now() - inicio > timeout) {
+        clearInterval(timer);
+        console.warn('⏱️ Timeout aguardando:', selector);
+      }
+    }, 300);
+  }
+
+  // ===============================
+  // 3️⃣ Preencher formulário
+  // ===============================
+  function tentarPreencherFormulario() {
+
+    if (!window.syncEscola.cidade) return;
+
+    // Aguarda select de cidade
+    esperarElemento('#city-select', function (citySelect) {
+
+      selecionarOpcao(citySelect, window.syncEscola.cidade);
+
+      // Aguarda select de unidade (normalmente vem depois)
+      esperarElemento('#unit-select', function (unitSelect) {
+
+        unitSelect.disabled = false;
+
+        if (window.syncEscola.unidade) {
+          selecionarOpcao(unitSelect, window.syncEscola.unidade);
+        }
+
+      });
+
+    });
+  }
+
+  // ===============================
+  // 4️⃣ Função utilitária
+  // ===============================
+  function selecionarOpcao(select, texto) {
+
+    if (!select || !texto) return;
+
+    const alvo = texto.trim().toLowerCase();
+
+    const option = Array.from(select.options).find(opt =>
+      opt.text.toLowerCase().includes(alvo)
+    );
+
+    if (!option) {
+      console.warn('❌ Opção não encontrada (contém):', texto);
+      return;
+    }
+
+    // Seleciona valor
+    select.value = option.value;
+
+    // 🔥 Simula interação humana
+    select.focus();
+    select.dispatchEvent(new Event('input', { bubbles: true }));
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+    select.dispatchEvent(new Event('blur', { bubbles: true }));
+
+    console.log('✅ Opção marcada (contains):', option.text);
+  }
 })(jQuery);
 JAVASCRIPT;
 echo '</script>';
