@@ -1486,7 +1486,7 @@ echo <<<'JAVASCRIPT'
         $.post(PositivoCRM.ajax_url, {
             action: "positivo_crm_search_eschool_public",
             nonce: PositivoCRM.nonce,
-            search: query
+            descricao: query
         })
         .done(function (resp) {
             if (!resp.success || !Array.isArray(resp.data) || resp.data.length === 0) {
