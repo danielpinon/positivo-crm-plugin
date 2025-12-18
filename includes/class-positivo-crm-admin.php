@@ -121,11 +121,79 @@ class Positivo_CRM_Admin
 
         $table = $wpdb->prefix . 'positivo_agendamentos';
 
-        // Nome da unidade
+        // ============================================================
+        // RESOLUÇÃO DA UNIDADE (ID + NOME)
+        // ============================================================
+
+        // 🔹 ID bruto vindo do form (pode vir com { })
+        $unidade_id_raw = $form['crm_unidadeinteresse'] ?? '';
+
+        // 🔹 Limpa { }
+        $unidade_id = trim(str_replace(['{', '}'], '', sanitize_text_field($unidade_id_raw)));
+
+        // 🔹 Nome da unidade (tentativa 1: vindo do form)
         $unidade_nome = '';
-        if (isset($form['crm_unidadeinteresse'])) {
-            $unidade_nome = sanitize_text_field($form['unidade_nome'] ?? '');
+
+        if (!empty($form['unidade_nome'])) {
+            $unidade_nome = sanitize_text_field($form['unidade_nome']);
         }
+
+        // 🔹 Fallback: buscar no CRM se não veio no form
+        if (empty($unidade_nome) && !empty($unidade_id)) {
+
+            try {
+                $api = new Positivo_CRM_API();
+                $response = $api->get_unidades();
+                if (
+                    is_array($response)
+                    && isset($response['data']['result'])
+                    && is_array($response['data']['result'])
+                ) {
+                    foreach ($response['data']['result'] as $unidade) {
+
+                        // Possíveis campos de ID no retorno
+                        $crm_id_raw =
+                            $unidade['cad_categoriaid']
+                            ?? $unidade['msdyn_organizationalunitid']
+                            ?? $unidade['id']
+                            ?? '';
+
+                        // Limpa { }
+                        $crm_id = trim(str_replace(['{', '}'], '', $crm_id_raw));
+
+                        if ($crm_id === $unidade_id) {
+
+                            // Possíveis campos de nome
+                            $unidade_nome = sanitize_text_field(
+                                $unidade['cad_name']
+                                ?? $unidade['msdyn_name']
+                                ?? $unidade['name']
+                                ?? ''
+                            );
+
+                            break;
+                        }
+                    }
+                }
+
+            } catch (Exception $e) {
+
+                Positivo_CRM_Logger::error('Erro ao buscar unidade no CRM', [
+                    'exception' => $e->getMessage(),
+                    'unidade_id' => $unidade_id
+                ]);
+            }
+        }
+
+        // 🔹 Segurança final
+        $unidade_nome = $unidade_nome ?: '';
+
+        // 🔹 LOG DE DEBUG (opcional, mas recomendado)
+        Positivo_CRM_Logger::info('Unidade resolvida', [
+            'unidade_id' => $unidade_id,
+            'unidade_nome' => $unidade_nome
+        ]);
+
 
         $dados = [
             // Responsável
@@ -2297,17 +2365,17 @@ class Positivo_CRM_Admin
             '{{responsavel_email}}' => $agendamento->responsavel_email,
             '{{responsavel_telefone}}' => $agendamento->responsavel_telefone,
             '{{responsavel_serie_interesse}}' => $agendamento->responsavel_serie_interesse,
-            '{{responsavel_serie_id}}' => $responsavel_serie_id ?: 'null',
+            '{{responsavel_serie_id}}' => preg_replace('/^\{|\}$/', '', $responsavel_serie_id) ?: 'null',
             '{{responsavel_como_conheceu}}' => intval($agendamento->responsavel_como_conheceu),
 
             '{{aluno_nome}}' => $agendamento->aluno_nome,
             '{{aluno_sobrenome}}' => $agendamento->aluno_sobrenome,
             '{{aluno_serie_interesse}}' => $agendamento->aluno_serie_interesse,
-            '{{aluno_serie_id}}' => $aluno_serie_id,
+            '{{aluno_serie_id}}' => preg_replace('/^\{|\}$/', '', $aluno_serie_id),
             '{{aluno_ano_interesse}}' => intval($agendamento->aluno_ano_interesse),
             '{{aluno_escola_origem}}' => $agendamento->aluno_escola_origem ?: '',
 
-            '{{unidade_id}}' => $agendamento->unidade_id,
+            '{{unidade_id}}' => preg_replace('/^\{|\}$/', '', $agendamento->unidade_id),
             '{{unidade_nome}}' => $agendamento->unidade_nome,
 
             '{{scheduledstart}}' => $scheduledstart,
