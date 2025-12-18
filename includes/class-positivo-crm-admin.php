@@ -49,6 +49,8 @@ class Positivo_CRM_Admin
         add_action('wp_ajax_nopriv_positivo_crm_get_responsavel_e_alunos', array($this, 'ajax_get_responsavel_e_alunos'));
         add_action('wp_ajax_positivo_crm_get_students', array($this, 'ajax_get_students'));
         add_action('wp_ajax_nopriv_positivo_crm_get_students', array($this, 'ajax_get_students'));
+        add_action('wp_ajax_positivo_crm_get_next_available_dates', [$this, 'ajax_get_next_available_dates']);
+        add_action('wp_ajax_nopriv_positivo_crm_get_next_available_dates', [$this, 'ajax_get_next_available_dates']);
         add_action('wp_ajax_positivo_crm_get_times', array($this, 'ajax_get_times'));
         add_action('wp_ajax_nopriv_positivo_crm_get_times', array($this, 'ajax_get_times'));
 
@@ -618,10 +620,204 @@ class Positivo_CRM_Admin
     }
 
     /**
-     * Endpoint AJAX para retornar horários disponíveis para um dia.
+     * Endpoint AJAX responsável por retornar as próximas datas disponíveis
+     * para agendamento, considerando a unidade selecionada.
      *
-     * Atualmente retorna uma lista estática de horários. Poderá ser integrado
-     * a uma API real futuramente.
+     * Este método:
+     * - Percorre os próximos dias a partir da data atual;
+     * - Identifica o dia da semana de cada data;
+     * - Busca os horários de funcionamento configurados no painel administrativo
+     *   para a unidade e dia da semana correspondentes;
+     * - Gera os slots de horários respeitando a duração da visita definida no admin;
+     * - Consulta os agendamentos já realizados no CRM Educacional Positivo;
+     * - Remove automaticamente os horários que colidem total ou parcialmente
+     *   com agendamentos existentes no CRM;
+     * - Retorna apenas as datas que possuem pelo menos um horário disponível;
+     * - Limita o retorno às próximas 5 datas disponíveis.
+     *
+     * A fonte de verdade para bloqueio de horários é o CRM, garantindo
+     * consistência entre o sistema WordPress e o CRM externo.
+     *
+     * Retorno (JSON):
+     * {
+     *   success: true,
+     *   data: {
+     *     dates: [
+     *       {
+     *         date: "2025-12-19",
+     *         weekday: "sexta",
+     *         times: ["08:00", "09:30", "11:00"]
+     *       },
+     *       {
+     *         date: "2025-12-20",
+     *         weekday: "sabado",
+     *         times: ["09:00", "10:30"]
+     *       }
+     *     ]
+     *   }
+     * }
+     */
+    public function ajax_get_next_available_dates()
+    {
+        if (isset($_POST['nonce'])) {
+            check_ajax_referer('positivo-crm-nonce', 'nonce');
+        }
+
+        $unit = sanitize_text_field($_POST['unit'] ?? '');
+
+        if (empty($unit)) {
+            wp_send_json_error(['message' => 'Unidade não informada.']);
+        }
+
+        $max_dates = 5;
+        $found = [];
+        $today = new DateTime('today');
+        $api = new Positivo_CRM_API();
+
+        // Mapeamento de dias
+        $dias_map = [
+            'monday' => 'segunda',
+            'tuesday' => 'terca',
+            'wednesday' => 'quarta',
+            'thursday' => 'quinta',
+            'friday' => 'sexta',
+            'saturday' => 'sabado',
+            'sunday' => 'domingo',
+        ];
+
+        global $wpdb;
+        $table_horarios = $wpdb->prefix . 'positivo_unidade_horarios';
+
+        // Vamos buscar até no máximo 30 dias à frente
+        for ($i = 0; $i < 30 && count($found) < $max_dates; $i++) {
+
+            $date = (clone $today)->modify("+{$i} days");
+            $date_str = $date->format('Y-m-d');
+            $weekday_en = strtolower($date->format('l'));
+            $dia_semana = $dias_map[$weekday_en] ?? null;
+
+            if (!$dia_semana) {
+                continue;
+            }
+
+            // Horários configurados no admin
+            $rows = $wpdb->get_results(
+                $wpdb->prepare(
+                    "SELECT * FROM {$table_horarios}
+                 WHERE unidade = %s AND dia_semana = %s",
+                    $unit,
+                    $dia_semana
+                )
+            );
+
+            if (!$rows) {
+                continue;
+            }
+
+            // ---- BUSCA AGENDAMENTOS DO CRM ----
+            $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unit, $date_str);
+            $intervalos_ocupados = [];
+
+            if (!is_wp_error($crm_agendamentos) && isset($crm_agendamentos['result'])) {
+                foreach ($crm_agendamentos['result'] as $ag) {
+                    if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
+                        continue;
+                    }
+                    try {
+                        $intervalos_ocupados[] = [
+                            'start' => new DateTime($ag['scheduledstart']),
+                            'end' => new DateTime($ag['scheduledend']),
+                        ];
+                    } catch (Exception $e) {
+                    }
+                }
+            }
+
+            // ---- GERA SLOTS DISPONÍVEIS ----
+            $slots = [];
+
+            foreach ($rows as $row) {
+                $start = DateTime::createFromFormat('H:i:s', $row->hora_inicio);
+                $end = DateTime::createFromFormat('H:i:s', $row->hora_fim);
+
+                if (!$start || !$end) {
+                    continue;
+                }
+
+                $duracao = max(15, intval($row->duracao_visita_minutos ?: 120));
+                $current = clone $start;
+
+                while (true) {
+                    $slot_start = clone $current;
+                    $slot_end = (clone $slot_start)->add(
+                        new DateInterval('PT' . $duracao . 'M')
+                    );
+
+                    if ($slot_end > $end) {
+                        break;
+                    }
+
+                    $colide = false;
+                    foreach ($intervalos_ocupados as $ocupado) {
+                        if (
+                            $slot_start < $ocupado['end'] &&
+                            $slot_end > $ocupado['start']
+                        ) {
+                            $colide = true;
+                            break;
+                        }
+                    }
+
+                    if (!$colide) {
+                        $slots[] = $slot_start->format('H:i');
+                    }
+
+                    $current = $slot_end;
+                }
+            }
+
+            if (!empty($slots)) {
+                sort($slots);
+                $found[] = [
+                    'date' => $date_str,
+                    'weekday' => $dia_semana,
+                    'times' => array_values(array_unique($slots)),
+                ];
+            }
+        }
+
+        if (empty($found)) {
+            wp_send_json_error(['message' => 'Nenhuma data disponível encontrada.']);
+        }
+
+        wp_send_json_success([
+            'dates' => $found
+        ]);
+    }
+
+
+    /**
+     * Endpoint AJAX responsável por retornar os horários disponíveis
+     * para uma data específica e unidade selecionada.
+     *
+     * Este método:
+     * - Identifica o dia da semana com base na data informada;
+     * - Busca os intervalos de funcionamento configurados no painel administrativo;
+     * - Gera os slots de horários respeitando a duração da visita definida no admin;
+     * - Consulta os agendamentos já realizados no CRM Educacional Positivo;
+     * - Remove automaticamente os horários que colidem com agendamentos existentes;
+     * - Retorna apenas os horários realmente disponíveis para novo agendamento.
+     *
+     * A fonte de verdade para bloqueio de horários é o CRM, garantindo
+     * consistência entre o sistema WordPress e o CRM externo.
+     *
+     * Retorno (JSON):
+     * {
+     *   success: true,
+     *   data: {
+     *     times: ["08:00", "09:30", "11:00"]
+     *   }
+     * }
      */
     public function ajax_get_times()
     {
