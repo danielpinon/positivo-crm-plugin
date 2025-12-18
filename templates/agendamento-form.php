@@ -1636,7 +1636,7 @@ echo <<<'JAVASCRIPT'
       });
     }
 
-    initEscolaSelect($('.escola-select'));
+    initEscolaSelect($('.aluno-fields').first());
 
     // $('.escola-select').select2({
     //   placeholder: 'Digite o nome da escola',
