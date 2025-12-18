@@ -888,14 +888,15 @@ $css_content = '
 
   #agendamento-loading-overlay p {
       margin-top: 18px;
+      margin-left: 4px;
       font-size: 22px;
       font-weight: 600;
       color: #d66100;
   }
 
   .spinner {
-      width: 65px;
-      height: 65px;
+      width: 35px;
+      height: 35px;
       border: 6px solid #ffb06b;
       border-top-color: #d66100;
       border-radius: 50%;
