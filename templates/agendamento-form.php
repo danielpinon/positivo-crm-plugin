@@ -1986,27 +1986,26 @@ echo <<<'JAVASCRIPT'
     /* ---------------------- ADD NOVO ALUNO ---------------------- */
     $form.on("click", ".add-aluno", function (e) {
       e.preventDefault();
-
-      const $container = $(this).siblings(".aluno-fields").first();
-      const $clone = $container.clone();
-
-      // 🔥 Remove Select2 antigo antes de clonar
+      const $btn = $(this);
+      const $container = $btn.siblings(".aluno-fields").first();
+      const $clone = $container.clone(false, false); // 🔥 clone limpo (sem eventos)
+      /* 🔥 DESTROI SELECT2 ANTES */
       $clone.find('.escola-select').each(function () {
           if ($(this).hasClass("select2-hidden-accessible")) {
               $(this).select2('destroy');
           }
       });
-
-      // Limpa campos
+      /* 🔥 LIMPA CAMPOS */
       $clone.find("input").val("");
-      $clone.find("select").val("");
-
-      // Insere no DOM
-      $clone.insertBefore($(this));
-
-      // 🔥 Reaplica Select2 apenas no clone
-      initEscolaSelect($clone.find('.escola-select'));
+      $clone.find("select").val("").trigger("change");
+      /* 🔥 REMOVE IDs DUPLICADOS (MUITO IMPORTANTE) */
+      $clone.find("[id]").removeAttr("id");
+      /* 🔥 INSERE NO DOM */
+      $clone.insertBefore($btn);
+      /* 🔥 REINICIALIZA SELECT2 SOMENTE NO CLONE */
+      initEscolaSelect($clone);
     });
+
 
 
     /* ---------------------- EDITAR DADOS ---------------------- */
