@@ -2321,9 +2321,9 @@ echo <<<'JAVASCRIPT'
       Eventos JetFilters (troca syncToForm por debounceSync)
     ============================================================ */
     [
-      "jet-smart-filters/changed",
-      "jet-smart-filters/apply-filters",
-      "jet-smart-filters/updated",
+      "seleciona-escola/changed",
+      "seleciona-escola/apply-filters",
+      "seleciona-escola/updated",
       "jet-engine/listing-grid/after-ajax"
     ].forEach(evt => document.addEventListener(evt, debounceSync));
 
@@ -2340,7 +2340,7 @@ echo <<<'JAVASCRIPT'
       MutationObserver (NÃO observe o body inteiro)
       -> observe só o container dos filtros (ajuste o seletor)
     ============================================================ */
-    const filtersRoot = document.querySelector(".jet-smart-filters"); // ajuste!
+    const filtersRoot = document.querySelector(".seleciona-escola"); // ajuste!
     if (filtersRoot && !window._jetfiltersObserver) {
       window._jetfiltersObserver = new MutationObserver(debounceSync);
       window._jetfiltersObserver.observe(filtersRoot, { childList: true, subtree: true });
