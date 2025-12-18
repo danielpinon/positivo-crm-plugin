@@ -983,6 +983,13 @@ $css_content = '
     font-weight: initial !important;
   }
 
+  .select2-container--default .select2-selection--single .select2-selection__clear{
+    display: none;
+  }
+  .select2-container--default .select2-selection--single .select2-selection__rendered{
+    max-width: 500px;
+  }
+
   /* Dropdown */
   .select2-dropdown {
     border-radius: 6px;
@@ -1226,7 +1233,7 @@ $html_body = '
             <p>Horário: <span class="visita-hora"></span></p>
         </div>
 
-        <button class="btn-fechar">Fechar</button>
+        <button class="btn-fechar" onclick="location.reload()">Fechar</button>
     </div>
 </div>
 
