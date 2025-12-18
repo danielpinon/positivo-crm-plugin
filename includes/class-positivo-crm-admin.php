@@ -220,6 +220,7 @@ class Positivo_CRM_Admin
                     'password' => 'Jursp@2013',                  // ⚠️ ideal mover para options
                     'grant_type' => 'password',
                 ],
+                "sslverify" => false,
             ]
         );
 
@@ -253,6 +254,7 @@ class Positivo_CRM_Admin
                     'Authorization' => 'Bearer ' . $token,
                     'Accept' => 'application/json',
                 ],
+                "sslverify" => false,
             ]
         );
 
@@ -612,6 +614,13 @@ class Positivo_CRM_Admin
         wp_send_json_success($response);
     }
 
+    private function wp_dd($data)
+    {
+        echo '<pre style="background:#111;color:#0f0;padding:15px;font-size:13px">';
+        var_dump($data);
+        echo '</pre>';
+        wp_die();
+    }
     /**
      * Endpoint AJAX para retornar horários disponíveis para um dia.
      *
@@ -742,7 +751,7 @@ class Positivo_CRM_Admin
             unidade_nome varchar(255) DEFAULT NULL,
             data_agendamento date NOT NULL,
             hora_agendamento time NOT NULL,
-            duracao_minutos int(11) DEFAULT 60,
+            duracao_minutos int(11) DEFAULT 120,
             status varchar(50) DEFAULT 'pendente',
             enviado_crm tinyint(1) DEFAULT 0,
             data_envio_crm datetime DEFAULT NULL,
@@ -764,6 +773,7 @@ class Positivo_CRM_Admin
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             unidade varchar(255) NOT NULL,
             dia_semana varchar(20) NOT NULL,
+            duracao_visita_minutos int(11) DEFAULT 120,
             hora_inicio time NOT NULL,
             hora_fim time NOT NULL,
             PRIMARY KEY  (id)
@@ -808,7 +818,7 @@ class Positivo_CRM_Admin
             'unidade_id' => "ALTER TABLE {$table_name} ADD COLUMN unidade_id varchar(255) NOT NULL AFTER aluno_escola_origem",
             'unidade_nome' => "ALTER TABLE {$table_name} ADD COLUMN unidade_nome varchar(255) DEFAULT NULL AFTER unidade_id",
             'hora_agendamento' => "ALTER TABLE {$table_name} ADD COLUMN hora_agendamento time NOT NULL AFTER data_agendamento",
-            'duracao_minutos' => "ALTER TABLE {$table_name} ADD COLUMN duracao_minutos int(11) DEFAULT 60 AFTER hora_agendamento",
+            'duracao_minutos' => "ALTER TABLE {$table_name} ADD COLUMN duracao_minutos int(11) DEFAULT 120 AFTER hora_agendamento",
             'status' => "ALTER TABLE {$table_name} ADD COLUMN status varchar(50) DEFAULT 'pendente' AFTER duracao_minutos",
             'enviado_crm' => "ALTER TABLE {$table_name} ADD COLUMN enviado_crm tinyint(1) DEFAULT 0 AFTER status",
             'data_envio_crm' => "ALTER TABLE {$table_name} ADD COLUMN data_envio_crm datetime DEFAULT NULL AFTER enviado_crm",
@@ -2092,7 +2102,8 @@ class Positivo_CRM_Admin
                 'Authorization' => 'Bearer ' . $token
             ],
             'body' => $body_json,
-            'timeout' => 60
+            'timeout' => 60,
+            "sslverify" => false,
         ]);
 
         if (is_wp_error($response)) {
@@ -2186,187 +2197,183 @@ class Positivo_CRM_Admin
         if (!current_user_can('manage_options')) {
             return;
         }
+
         global $wpdb;
         $table = $wpdb->prefix . 'positivo_unidade_horarios';
 
-        // Manipulação de exclusão
+        // =========================
+        // EXCLUSÃO
+        // =========================
         if (isset($_GET['delete'])) {
             $delete_id = intval($_GET['delete']);
-            $wpdb->delete($table, array('id' => $delete_id), array('%d'));
-            echo '<div class="updated notice"><p>' . esc_html__('Horário removido com sucesso.', 'positivo-crm') . '</p></div>';
+            $wpdb->delete($table, ['id' => $delete_id], ['%d']);
+            echo '<div class="updated notice"><p>Horário removido com sucesso.</p></div>';
         }
 
-        // Manipulação de criação/edição
+        // =========================
+        // CREATE / UPDATE
+        // =========================
         if (isset($_POST['submit_horario_admin'])) {
             check_admin_referer('positivo_crm_horario_action', 'positivo_crm_horario_nonce');
-            $id = isset($_POST['horario_id']) ? intval($_POST['horario_id']) : 0;
-            $unidade = isset($_POST['unidade']) ? sanitize_text_field($_POST['unidade']) : '';
-            $dia_semana = isset($_POST['dia_semana']) ? sanitize_text_field($_POST['dia_semana']) : '';
-            $hora_inicio = isset($_POST['hora_inicio']) ? sanitize_text_field($_POST['hora_inicio']) : '';
-            $hora_fim = isset($_POST['hora_fim']) ? sanitize_text_field($_POST['hora_fim']) : '';
+
+            $id = intval($_POST['horario_id'] ?? 0);
+            $unidade = sanitize_text_field($_POST['unidade'] ?? '');
+            $dia_semana = sanitize_text_field($_POST['dia_semana'] ?? '');
+            $hora_inicio = sanitize_text_field($_POST['hora_inicio'] ?? '');
+            $hora_fim = sanitize_text_field($_POST['hora_fim'] ?? '');
+            $duracao = max(15, intval($_POST['duracao_visita_minutos'] ?? 120));
+
+            $dados = [
+                'unidade' => $unidade,
+                'dia_semana' => $dia_semana,
+                'hora_inicio' => $hora_inicio,
+                'hora_fim' => $hora_fim,
+                'duracao_visita_minutos' => $duracao,
+            ];
+
+            $format = ['%s', '%s', '%s', '%s', '%d'];
+
             if ($id > 0) {
-                $wpdb->update($table, array(
-                    'unidade' => $unidade,
-                    'dia_semana' => $dia_semana,
-                    'hora_inicio' => $hora_inicio,
-                    'hora_fim' => $hora_fim,
-                ), array('id' => $id), array('%s', '%s', '%s', '%s'), array('%d'));
-                echo '<div class="updated notice"><p>' . esc_html__('Horário atualizado com sucesso.', 'positivo-crm') . '</p></div>';
+                $wpdb->update($table, $dados, ['id' => $id], $format, ['%d']);
+                echo '<div class="updated notice"><p>Horário atualizado com sucesso.</p></div>';
             } else {
-                $wpdb->insert($table, array(
-                    'unidade' => $unidade,
-                    'dia_semana' => $dia_semana,
-                    'hora_inicio' => $hora_inicio,
-                    'hora_fim' => $hora_fim,
-                ), array('%s', '%s', '%s', '%s'));
-                echo '<div class="updated notice"><p>' . esc_html__('Horário criado com sucesso.', 'positivo-crm') . '</p></div>';
+                $wpdb->insert($table, $dados, $format);
+                echo '<div class="updated notice"><p>Horário criado com sucesso.</p></div>';
             }
         }
 
-        // Obter dados para edição
+        // =========================
+        // EDIÇÃO
+        // =========================
         $edit_item = null;
         if (isset($_GET['edit'])) {
-            $edit_id = intval($_GET['edit']);
-            $edit_item = $wpdb->get_row($wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $edit_id));
+            $edit_item = $wpdb->get_row(
+                $wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", intval($_GET['edit']))
+            );
         }
 
         $items = $wpdb->get_results("SELECT * FROM {$table} ORDER BY id DESC");
 
-        // Obtém o mapeamento de ID da unidade para nome, a partir da API
-        $units_map = array();
-        $api_for_units = new Positivo_CRM_API();
-        $units_res = $api_for_units->get_unidades();
-        if (!is_wp_error($units_res) && isset($units_res['result']) && is_array($units_res['result'])) {
-            foreach ($units_res['result'] as $unit_item) {
-                // Mapeia cad_categoriaid (ID) para cad_name (Nome)
-                if (isset($unit_item['cad_categoriaid']) && isset($unit_item['cad_name'])) {
-                    $units_map[$unit_item['cad_categoriaid']] = $unit_item['cad_name'];
-                }
-            }
-        }
-
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__('Horários de Unidades', 'positivo-crm') . '</h1>';
-        echo '<h2>' . ($edit_item ? esc_html__('Editar Horário', 'positivo-crm') : esc_html__('Novo Horário', 'positivo-crm')) . '</h2>';
-        echo '<form method="post" action="">';
-        wp_nonce_field('positivo_crm_horario_action', 'positivo_crm_horario_nonce');
-        $unidade_value = $edit_item ? esc_attr($edit_item->unidade) : '';
-        $dia_value = $edit_item ? esc_attr($edit_item->dia_semana) : '';
-        $inicio_value = $edit_item ? esc_attr($edit_item->hora_inicio) : '';
-        $fim_value = $edit_item ? esc_attr($edit_item->hora_fim) : '';
-        $horario_id_value = $edit_item ? intval($edit_item->id) : 0;
-        echo '<table class="form-table"><tbody>';
-        // Campo Unidade: agora um select populado pela lista de unidades da API
-        echo '<tr><th><label for="unidade">' . esc_html__('Unidade', 'positivo-crm') . '</label></th><td>';
-        // Tenta carregar as unidades via API
-        $units_options = array();
+        // =========================
+        // MAPA DE UNIDADES
+        // =========================
+        $units_map = [];
         $api = new Positivo_CRM_API();
-        $units_response = $api->get_unidades();
+        $units_res = $api->get_unidades();
 
-        // Debug: mostra o erro se houver
-        $debug_message = '';
-        if (is_wp_error($units_response)) {
-            $debug_message = 'Erro na API: ' . $units_response->get_error_message();
-        } elseif (!isset($units_response['result'])) {
-            $debug_message = 'Resposta da API não contém "result". Estrutura: ' . print_r(array_keys((array) $units_response), true);
-        } elseif (!is_array($units_response['result'])) {
-            $debug_message = 'Campo "result" não é um array.';
-        }
-
-        // Processa a resposta da API
-        if (!is_wp_error($units_response)) {
-            // Tenta diferentes estruturas de resposta
-            $unidades_array = null;
-            if (isset($units_response['result']) && is_array($units_response['result'])) {
-                $unidades_array = $units_response['result'];
-            } elseif (isset($units_response['value']) && is_array($units_response['value'])) {
-                $unidades_array = $units_response['value'];
-            } elseif (is_array($units_response)) {
-                $unidades_array = $units_response;
-            }
-
-            if ($unidades_array) {
-                foreach ($unidades_array as $unit_item) {
-                    // Usa cad_categoriaid como valor (ID) e cad_name como label
-                    if (isset($unit_item['cad_categoriaid']) && isset($unit_item['cad_name'])) {
-                        $units_options[$unit_item['cad_categoriaid']] = $unit_item['cad_name'];
-                    }
+        if (!is_wp_error($units_res) && isset($units_res['result'])) {
+            foreach ($units_res['result'] as $u) {
+                if (isset($u['cad_categoriaid'], $u['cad_name'])) {
+                    $units_map[$u['cad_categoriaid']] = $u['cad_name'];
                 }
             }
         }
 
-        // Se não houver unidades recuperadas, ainda permite digitar manualmente
-        if (empty($units_options)) {
-            echo '<input type="text" id="unidade" name="unidade" class="regular-text" value="' . esc_attr($unidade_value) . '" required />';
-            if ($debug_message && current_user_can('manage_options')) {
-                echo '<p class="description" style="color:red;">' . esc_html($debug_message) . '</p>';
-            }
-        } else {
-            echo '<select id="unidade" name="unidade" required>';
-            echo '<option value="">' . esc_html__('Selecione a unidade', 'positivo-crm') . '</option>';
-            foreach ($units_options as $unit_id => $unit_name) {
-                // Seleciona a opção com base no ID armazenado no banco
-                $selected = selected($unidade_value, $unit_id, false);
-                echo '<option value="' . esc_attr($unit_id) . '" ' . $selected . '>' . esc_html($unit_name) . '</option>';
-            }
-            echo '</select>';
-        }
-        echo '</td></tr>';
-        echo '<tr><th><label for="dia_semana">' . esc_html__('Dia da Semana', 'positivo-crm') . '</label></th><td>';
-        echo '<select id="dia_semana" name="dia_semana">';
-        $dias = array('segunda' => __('Segunda', 'positivo-crm'), 'terca' => __('Terça', 'positivo-crm'), 'quarta' => __('Quarta', 'positivo-crm'), 'quinta' => __('Quinta', 'positivo-crm'), 'sexta' => __('Sexta', 'positivo-crm'), 'sabado' => __('Sábado', 'positivo-crm'), 'domingo' => __('Domingo', 'positivo-crm'));
-        foreach ($dias as $val => $label) {
-            $selected = selected($dia_value, $val, false);
-            echo '<option value="' . esc_attr($val) . '" ' . $selected . '>' . esc_html($label) . '</option>';
-        }
-        echo '</select>';
-        echo '</td></tr>';
-        echo '<tr><th><label for="hora_inicio">' . esc_html__('Hora de Início', 'positivo-crm') . '</label></th><td>';
-        echo '<input type="time" id="hora_inicio" name="hora_inicio" value="' . $inicio_value . '" required />';
-        echo '</td></tr>';
-        echo '<tr><th><label for="hora_fim">' . esc_html__('Hora de Término', 'positivo-crm') . '</label></th><td>';
-        echo '<input type="time" id="hora_fim" name="hora_fim" value="' . $fim_value . '" required />';
-        echo '</td></tr>';
-        echo '</tbody></table>';
-        echo '<input type="hidden" name="horario_id" value="' . $horario_id_value . '" />';
-        submit_button($edit_item ? __('Atualizar Horário', 'positivo-crm') : __('Criar Horário', 'positivo-crm'), 'primary', 'submit_horario_admin');
-        echo '</form>';
+        // =========================
+        // FORM
+        // =========================
+        ?>
+        <div class="wrap">
+            <h1>Horários de Unidades</h1>
 
-        echo '<h2>' . esc_html__('Lista de Horários', 'positivo-crm') . '</h2>';
-        if (!empty($items)) {
-            echo '<table class="wp-list-table widefat fixed striped">';
-            echo '<thead><tr>';
-            echo '<th>' . esc_html__('ID', 'positivo-crm') . '</th>';
-            echo '<th>' . esc_html__('Unidade', 'positivo-crm') . '</th>';
-            echo '<th>' . esc_html__('Dia', 'positivo-crm') . '</th>';
-            echo '<th>' . esc_html__('Hora Início', 'positivo-crm') . '</th>';
-            echo '<th>' . esc_html__('Hora Fim', 'positivo-crm') . '</th>';
-            echo '<th>' . esc_html__('Ações', 'positivo-crm') . '</th>';
-            echo '</tr></thead><tbody>';
-            foreach ($items as $item) {
-                $edit_link = add_query_arg(array('page' => 'positivo_crm_horarios', 'edit' => intval($item->id)), admin_url('admin.php'));
-                $delete_link = add_query_arg(array('page' => 'positivo_crm_horarios', 'delete' => intval($item->id)), admin_url('admin.php'));
-                echo '<tr>';
-                echo '<td>' . intval($item->id) . '</td>';
-                // Converte o ID da unidade em nome se disponível
-                $display_unit = isset($units_map[$item->unidade]) ? $units_map[$item->unidade] : $item->unidade;
-                echo '<td>' . esc_html($display_unit) . '</td>';
-                echo '<td>' . esc_html(ucfirst($item->dia_semana)) . '</td>';
-                echo '<td>' . esc_html($item->hora_inicio) . '</td>';
-                echo '<td>' . esc_html($item->hora_fim) . '</td>';
-                echo '<td>';
-                echo '<a href="' . esc_url($edit_link) . '">' . esc_html__('Editar', 'positivo-crm') . '</a> | ';
-                $confirm_msg = esc_js(__("Tem certeza de que deseja remover este horário?", 'positivo-crm'));
-                echo '<a href="' . esc_url($delete_link) . '" onclick="return confirm(\'' . $confirm_msg . '\');">' . esc_html__('Excluir', 'positivo-crm') . '</a>';
-                echo '</td>';
-                echo '</tr>';
-            }
-            echo '</tbody></table>';
-        } else {
-            echo '<p>' . esc_html__('Nenhum horário encontrado.', 'positivo-crm') . '</p>';
-        }
-        echo '</div>';
+            <form method="post">
+                <?php wp_nonce_field('positivo_crm_horario_action', 'positivo_crm_horario_nonce'); ?>
+                <input type="hidden" name="horario_id" value="<?= esc_attr($edit_item->id ?? 0) ?>">
+
+                <table class="form-table">
+                    <tr>
+                        <th>Unidade</th>
+                        <td>
+                            <select name="unidade" required>
+                                <option value="">Selecione...</option>
+                                <?php foreach ($units_map as $id => $nome): ?>
+                                    <option value="<?= esc_attr($id) ?>" <?= selected($edit_item->unidade ?? '', $id, false) ?>>
+                                        <?= esc_html($nome) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Dia da Semana</th>
+                        <td>
+                            <select name="dia_semana" required>
+                                <?php
+                                $dias = ['segunda', 'terca', 'quarta', 'quinta', 'sexta', 'sabado', 'domingo'];
+                                foreach ($dias as $d):
+                                    ?>
+                                    <option value="<?= $d ?>" <?= selected($edit_item->dia_semana ?? '', $d, false) ?>>
+                                        <?= ucfirst($d) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Hora Início</th>
+                        <td><input type="time" name="hora_inicio" value="<?= esc_attr($edit_item->hora_inicio ?? '') ?>"
+                                required></td>
+                    </tr>
+
+                    <tr>
+                        <th>Hora Fim</th>
+                        <td><input type="time" name="hora_fim" value="<?= esc_attr($edit_item->hora_fim ?? '') ?>" required>
+                        </td>
+                    </tr>
+
+                    <tr>
+                        <th>Duração da Visita (min)</th>
+                        <td>
+                            <input type="number" name="duracao_visita_minutos" min="15" step="15"
+                                value="<?= esc_attr($edit_item->duracao_visita_minutos ?? 60) ?>" required>
+                            <p class="description">Tempo de cada visita nesta unidade/dia</p>
+                        </td>
+                    </tr>
+                </table>
+
+                <?php submit_button($edit_item ? 'Atualizar Horário' : 'Criar Horário'); ?>
+            </form>
+
+            <hr>
+
+            <h2>Lista de Horários</h2>
+
+            <table class="wp-list-table widefat striped">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Unidade</th>
+                        <th>Dia</th>
+                        <th>Início</th>
+                        <th>Fim</th>
+                        <th>Duração</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($items as $item): ?>
+                        <tr>
+                            <td><?= intval($item->id) ?></td>
+                            <td><?= esc_html($units_map[$item->unidade] ?? $item->unidade) ?></td>
+                            <td><?= esc_html(ucfirst($item->dia_semana)) ?></td>
+                            <td><?= esc_html($item->hora_inicio) ?></td>
+                            <td><?= esc_html($item->hora_fim) ?></td>
+                            <td><?= intval($item->duracao_visita_minutos) ?> min</td>
+                            <td>
+                                <a href="<?= esc_url(add_query_arg(['edit' => $item->id])) ?>">Editar</a> |
+                                <a href="<?= esc_url(add_query_arg(['delete' => $item->id])) ?>"
+                                    onclick="return confirm('Remover este horário?')">Excluir</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php
     }
+
 
     /**
      * Adiciona a meta box ao editor de páginas.
