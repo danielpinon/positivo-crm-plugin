@@ -2135,25 +2135,38 @@ echo <<<'JAVASCRIPT'
     /* ============================================================
         Seleciona option por texto parcial
     ============================================================ */
-    function selectOptionByPartialText(select, text) {
-        if (!select || !text) return false;
-
-        text = text.trim().toLowerCase();
-        const options = Array.from(select.options);
-
-        const found = options.find(opt =>
-            opt.textContent.trim().toLowerCase().includes(text)
-        );
-
-        if (found) {
-            select.value = found.value;
-            fireEvent(select, "input");
-            fireEvent(select, "change");
-            return true;
-        }
-
-        return false;
+    // normaliza o texto (minúsculo, remove acentos e caracteres especiais)
+    function norm(str) {
+      return (str || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '') // remove acentos
+        .replace(/–|-|—/g, '')           // remove hifens e travessões
+        .replace(/col[eé]gio\s+positivo\s*/i, '') // remove prefixo “Colégio Positivo ”
+        .trim();
     }
+
+    // seleciona uma opção do select pelo texto (exato ou parcial)
+    function selectOptionByPartialText(selectEl, textoJet) {
+      const alvo = norm(textoJet);
+      const options = Array.from(selectEl.options);
+
+      // tenta primeiro match exato
+      let found = options.find(opt => norm(opt.textContent) === alvo);
+
+      // se não encontrar, faz match parcial (inclusão)
+      if (!found) {
+        found = options.find(opt => norm(opt.textContent).includes(alvo));
+      }
+
+      console.log(found);
+      if (found) {
+        selectEl.value = found.value;
+        return true;
+      }
+      return false;
+    }
+
 
     /* ============================================================
         Capturar elementos
