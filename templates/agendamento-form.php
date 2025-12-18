@@ -1026,6 +1026,7 @@ $html_body = '
 
       <form id="agendamento-form">
         <input type="hidden" id="cadCategoriaId" name="crm_unidadeinteresse" value="" />
+        <input type="hidden" id="unidade_nome" name="unidade_nome" value="" />
         <input type="hidden" name="utm_source">
         <input type="hidden" name="utm_medium">
         <input type="hidden" name="utm_campaign">
@@ -1327,6 +1328,16 @@ echo <<<'JAVASCRIPT'
       } catch(e){}
       return raw.substring(0,10);
     }
+
+
+    // ===================== Parametro de Unidade =====================
+    $('#unit-select').on('change', function () {
+        const nome = $(this).find('option:selected').text().trim();
+        const id   = $(this).val();
+
+        $('#cadCategoriaId').val(id);
+        $('#unidade_nome').val(nome);
+    });
 
     // ===================== LISTA DE ALUNOS =====================
 

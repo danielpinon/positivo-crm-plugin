@@ -96,8 +96,6 @@ class Positivo_CRM_Admin
 
         parse_str($form_raw, $form);
 
-        wp_dd($form);
-
         // ============================
         // CAPTURA DE UTMs
         // ============================
@@ -125,7 +123,7 @@ class Positivo_CRM_Admin
 
         // Nome da unidade
         $unidade_nome = '';
-        if (isset($form['crm_unidadeinteresse']) && isset($form['unit'])) {
+        if (isset($form['crm_unidadeinteresse'])) {
             $unidade_nome = sanitize_text_field($form['unidade_nome'] ?? '');
         }
 
@@ -2284,6 +2282,8 @@ class Positivo_CRM_Admin
         if (!empty($utm_block)) {
             $utm_text = "Origem da Conversão: " . implode(" | ", $utm_block);
         }
+
+        wp_dd($agendamento);
 
 
         /*
