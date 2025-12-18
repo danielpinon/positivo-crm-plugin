@@ -96,6 +96,8 @@ class Positivo_CRM_Admin
 
         parse_str($form_raw, $form);
 
+        wp_dd($form);
+
         // ============================
         // CAPTURA DE UTMs
         // ============================
