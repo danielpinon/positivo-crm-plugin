@@ -386,26 +386,29 @@ $css_content = '
     gap: 10px;
   }
 
+  /* HORÁRIO - NÃO SELECIONADO */
   .time-slot {
-    padding: 10px 16px;
-    border-radius: 8px;
-    background-color: #eaeaea;
-    border: 1px solid #ccc;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 500;
-    transition: .15s;
+      background-color: #F2A66A !important;
+      color: #ffffff !important;
+      border-radius: 8px !important;
+      padding: 10px 16px !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+      border: none !important;
+      box-shadow: none !important;
+      transition: all 0.2s ease !important;
   }
 
+  /* HOVER */
   .time-slot:hover {
-    background-color: #dcdcdc;
+      opacity: 0.9 !important;
   }
 
-  .time-slot.selected {
-    background-color: var(--brand-orange);
-    border-color: var(--brand-orange-dark);
-    color: #fff;
-    box-shadow: 0 6px 16px rgba(239,108,0,0.35);
+  /* HORÁRIO SELECIONADO */
+  .time-slot.active {
+      background-color: #E56A00 !important;
+      color: #ffffff !important;
+      box-shadow: 0 0 0 2px rgba(229, 106, 0, 0.35) !important;
   }
 
   select.data-select,
@@ -1783,6 +1786,14 @@ echo <<<'JAVASCRIPT'
         $("#selected_date").val($btn.data("date"));
         $("#selected_time").val($btn.data("time"));
     });
+    document.addEventListener('click', function (e) {
+      const slot = e.target.closest('.time-slot');
+      if (!slot) return;
+      document.querySelectorAll('.time-slot')
+          .forEach(el => el.classList.remove('active'));
+      slot.classList.add('active');
+    });
+
 
 
 
