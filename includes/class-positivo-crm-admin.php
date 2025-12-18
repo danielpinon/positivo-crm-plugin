@@ -2157,7 +2157,7 @@ class Positivo_CRM_Admin
         $options = get_option('positivo_crm_options', []);
 
         $service_id = $options['service_id_visita'] ?? '9afda331-8c4f-eb11-a812-000d3ac1453b';
-        $booking_status_id = $options['booking_status_id'] ?? '91c79750-acac-4da1-9e69-447b4bb2dfc9';
+        $booking_status_id = $options['booking_status_id'] ?? '8b1707dc-f012-4979-a3cc-cc8317b942d5';
         $resource_id = $options['resource_id_default'] ?? '473194a7-716c-eb11-a812-000d3ac1453b';
         $msdyn_status = intval($options['msdyn_status'] ?? 690970000);
         $origem_positivo = intval($options['origem_positivo'] ?? 4);
