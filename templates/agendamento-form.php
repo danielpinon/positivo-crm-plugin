@@ -908,6 +908,15 @@ $css_content = '
     pointer-events: none;
   }
 
+  .agenda-dia {
+    margin-bottom: 18px;
+  }
+
+  .agenda-dia-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #444;
+  }
 
 
 ';
@@ -1027,14 +1036,20 @@ $html_body = '
                 <label>Nome completo do Aluno <span class="required">*</span></label>
                 <input type="text" name="aluno_nome[]" required />
               </div>
-              <div class="form-group">
+              <div class="form-group escola-origem-group">
                 <label>Escola de Origem <span class="required">*</span></label>
-                <input type="text" name="aluno_escola[]" required />
+                <input
+                  type="text"
+                  class="escola-search"
+                  placeholder="Digite o nome da escola"
+                  autocomplete="off"
+                />
+                <select name="aluno_escola[]" class="escola-select data-select hidden" required></select>
               </div>
               <div class="form-group form-row-2-small" style="display:flex; gap:16px; flex-wrap:wrap;">
                 <div style="flex:1 1 120px;">
                   <label>Ano de Matrícula <span class="required">*</span></label>
-                  <input type="number" name="aluno_ano[]" placeholder="2026" required />
+                  <select name="aluno_ano[]" class="ano-matricula-select data-select" required></select>
                 </div>
                 <div style="flex:1 1 120px;">
                   <label>Qual a série desejada? <span class="required">*</span></label>
@@ -1056,24 +1071,40 @@ $html_body = '
         <!-- PASSO 4: AGENDAMENTO -->
         <div class="step-view" data-step="4">
           <h2 class="mb-24">Agendamento</h2>
-          <div class="form-group">
-            <label for="agendamentoData" class="label-line">Selecione a data <span class="required">*</span></label>
-            <input type="date" id="agendamentoData" name="agendamento_data" required />
+
+          <p class="mb-16">
+            Selecione um <strong>dia</strong> e um <strong>horário disponível</strong> para sua visita:
+          </p>
+
+          <!-- Campos ocultos que serão preenchidos via JS -->
+          <input type="hidden" id="selected_date" name="agendamento_data" required>
+          <input type="hidden" id="selected_time" name="agendamento_hora" required>
+
+          <!-- Container dos próximos dias disponíveis -->
+          <div id="agendaDias" class="agenda-dias">
+            <!-- Preenchido via AJAX:
+                positivo_crm_get_next_available_dates -->
           </div>
-          <!-- Campo oculto para armazenar o horário selecionado -->
-          <input type="hidden" id="selected_time" name="agendamento_hora" />
-          <!-- Grade de horários: será preenchida via JS quando a data for selecionada -->
-          <div class="horarios-grid hidden" id="horariosGrid"></div>
+
           <div class="form-group" style="margin-top:16px;">
             <label class="terms">
-              <input type="checkbox" id="acceptTerms" required /> Eu li e aceito os termos de <a href="https://colegiopositivo.com.br/politica-de-privacidade" target="_blank">Política de Privacidade</a> do Colégio Positivo
+              <input type="checkbox" id="acceptTerms" required>
+              Eu li e aceito os termos de
+              <a href="https://colegiopositivo.com.br/politica-de-privacidade" target="_blank">
+                Política de Privacidade
+              </a>
+              do Colégio Positivo
             </label>
           </div>
+
           <div class="footer-actions" style="margin-top:24px;">
             <button type="button" class="btn prev" data-prev-step="3">Voltar</button>
-            <button type="submit" class="btn" id="submitAgendamento">Realizar agendamento</button>
+            <button type="submit" class="btn" id="submitAgendamento">
+              Realizar agendamento
+            </button>
           </div>
         </div>
+
 
         <!-- PASSO 5: CONFIRMAÇÃO (Será exibido via JS após o submit) -->
       </form>
@@ -1312,11 +1343,19 @@ echo <<<'JAVASCRIPT'
       currentStep = step;
     }
 
-    $form.on("click", ".next-step", function() {
+    $form.on("click", ".next-step", function () {
       const next = parseInt($(this).data("next-step"));
-      if (validateStep(currentStep)) updateSteps(next);
-      else alert("Por favor, preencha todos os campos obrigatórios.");
+      if (!validateStep(currentStep)) {
+          alert("Por favor, preencha todos os campos obrigatórios.");
+          return;
+      }
+      updateSteps(next);
+      // 🔥 Ao entrar no passo 4, carrega agenda
+      if (next === 4) {
+          carregarProximosDias();
+      }
     });
+
 
     $form.on("click", ".prev", function() {
       updateSteps(parseInt($(this).data("prev-step")));
@@ -1428,6 +1467,194 @@ echo <<<'JAVASCRIPT'
           $btn.prop("disabled", false).text("Informar dados do Aluno");
       });
     });
+
+    /* ============================================================
+      BUSCA DE ESCOLA DE ORIGEM (AUTOCOMPLETE)
+    ============================================================ */
+
+    $form.on("input", ".escola-search", function () {
+        const $input = $(this);
+        const query = $input.val().trim();
+        const $group = $input.closest(".escola-origem-group");
+        const $select = $group.find(".escola-select");
+
+        if (query.length < 3) {
+            $select.addClass("hidden").empty();
+            return;
+        }
+
+        $.post(PositivoCRM.ajax_url, {
+            action: "positivo_crm_search_eschool_public",
+            nonce: PositivoCRM.nonce,
+            search: query
+        })
+        .done(function (resp) {
+            if (!resp.success || !Array.isArray(resp.data) || resp.data.length === 0) {
+                $select
+                  .html('<option value="' + query + '">' + query + '</option>')
+                  .removeClass("hidden");
+                return;
+            }
+
+            let html = '<option value="">Selecione a escola</option>';
+
+            resp.data.forEach(function (school) {
+                const nome =
+                    school.name ||
+                    school.nome ||
+                    school.fullname ||
+                    school.cad_name ||
+                    "";
+
+                if (nome) {
+                    html += `<option value="${nome}">${nome}</option>`;
+                }
+            });
+
+            $select.html(html).removeClass("hidden");
+        });
+    });
+
+    /* Quando selecionar a escola, mantém visível e válida */
+    $form.on("change", ".escola-select", function () {
+        const $select = $(this);
+        const $group = $select.closest(".escola-origem-group");
+
+        $group.find(".escola-search").val(
+            $select.find("option:selected").text()
+        );
+    });
+
+    /* ============================================================
+      ANO DE MATRÍCULA (DINÂMICO)
+    ============================================================ */
+
+    function preencherAnoMatricula($select) {
+        const now = new Date();
+        const anoAtual = now.getFullYear();
+        const mesAtual = now.getMonth() + 1;
+
+        let anoPrincipal = anoAtual;
+
+        // Se estiver no fim do ano (outubro em diante), já projeta o próximo
+        if (mesAtual >= 10) {
+            anoPrincipal = anoAtual + 1;
+        }
+
+        const anos = [
+            anoPrincipal,
+            anoPrincipal + 1
+        ];
+
+        let html = "";
+        anos.forEach((ano, index) => {
+            html += `<option value="${ano}" ${index === 0 ? "selected" : ""}>${ano}</option>`;
+        });
+
+        $select.html(html);
+    }
+
+    // Inicialização
+    $(".ano-matricula-select").each(function () {
+        preencherAnoMatricula($(this));
+    });
+
+    // Quando adicionar novo aluno dinamicamente
+    $form.on("click", ".add-aluno", function () {
+        setTimeout(() => {
+            $(".ano-matricula-select").each(function () {
+                if (!$(this).children().length) {
+                    preencherAnoMatricula($(this));
+                }
+            });
+        }, 50);
+    });
+
+    /* ============================================================
+      CARREGAR PRÓXIMOS 5 DIAS DISPONÍVEIS
+    ============================================================ */
+
+    function carregarProximosDias() {
+        const unidade = $("#unit-select").val();
+
+        if (!unidade) {
+            alert("Selecione uma unidade primeiro.");
+            return;
+        }
+
+        const $container = $("#agendaDias");
+        $container.html("<p>Carregando datas disponíveis...</p>");
+
+        $.post(PositivoCRM.ajax_url, {
+            action: "positivo_crm_get_next_available_dates",
+            nonce: PositivoCRM.nonce,
+            unit: unidade
+        })
+        .done(function (resp) {
+
+            if (!resp.success || !Array.isArray(resp.data) || resp.data.length === 0) {
+                $container.html("<p>Nenhuma data disponível.</p>");
+                return;
+            }
+
+            let html = "";
+
+            resp.data.forEach(function (dia) {
+                const dataISO = dia.date;
+                const times = dia.times || [];
+
+                if (times.length === 0) return;
+
+                const d = new Date(dataISO + "T00:00:00");
+                const labelData = d.toLocaleDateString("pt-BR", {
+                    weekday: "short",
+                    day: "2-digit",
+                    month: "2-digit"
+                });
+
+                html += `
+                  <div class="agenda-dia">
+                    <div class="agenda-dia-label">${labelData}</div>
+                    <div class="horarios-grid">
+                `;
+
+                times.forEach(function (hora) {
+                    html += `
+                      <button
+                        type="button"
+                        class="time-slot"
+                        data-date="${dataISO}"
+                        data-time="${hora}"
+                      >
+                        ${hora}
+                      </button>
+                    `;
+                });
+
+                html += `
+                    </div>
+                  </div>
+                `;
+            });
+
+            $container.html(html);
+        })
+        .fail(function () {
+            $container.html("<p>Erro ao carregar agenda.</p>");
+        });
+    }
+
+    /* ============================================================
+      SELEÇÃO DE HORÁRIO
+    ============================================================ */
+    $(document).on("click", ".time-slot", function () {
+        const $btn = $(this);
+        $(".time-slot").removeClass("selected");
+        $btn.addClass("selected");
+        $("#selected_date").val($btn.data("date"));
+        $("#selected_time").val($btn.data("time"));
+    });
+
 
 
 
