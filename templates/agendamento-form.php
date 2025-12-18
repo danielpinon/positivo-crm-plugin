@@ -1566,7 +1566,7 @@ echo <<<'JAVASCRIPT'
       },
       inputTooShort: function (args) {
           const remainingChars = args.minimum - args.input.length;
-          return 'Por gentileza, adicione' + remainingChars + ' ou mais caractere(s).';
+          return 'Por gentileza, adicione ' + remainingChars + ' ou mais caractere(s).';
       },
       loadingMore: function () {
           return 'Carregando mais resultados…';
