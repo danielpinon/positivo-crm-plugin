@@ -96,6 +96,18 @@ class Positivo_CRM_Admin
 
         parse_str($form_raw, $form);
 
+        // ============================
+        // CAPTURA DE UTMs
+        // ============================
+        $utms = [
+            'utm_source'   => sanitize_text_field($form['utm_source'] ?? $_COOKIE['utm_source'] ?? ''),
+            'utm_medium'   => sanitize_text_field($form['utm_medium'] ?? $_COOKIE['utm_medium'] ?? ''),
+            'utm_campaign' => sanitize_text_field($form['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? ''),
+            'utm_term'     => sanitize_text_field($form['utm_term'] ?? $_COOKIE['utm_term'] ?? ''),
+            'utm_content'  => sanitize_text_field($form['utm_content'] ?? $_COOKIE['utm_content'] ?? ''),
+        ];
+
+
         Positivo_CRM_Logger::info("FORM DECODIFICADO", [
             'form' => $form
         ]);
@@ -2239,6 +2251,39 @@ class Positivo_CRM_Admin
         $scheduledend = $dt_fim->format('Y-m-d\TH:i:s\Z');
         $arrivaltime = $dt_chegada->format('Y-m-d\TH:i:s\Z');
 
+        // ============================
+        // BLOCO DE ORIGEM / UTM (SEM BANCO)
+        // ============================
+        $utm_source   = sanitize_text_field($_POST['utm_source']   ?? $_COOKIE['utm_source']   ?? '');
+        $utm_medium   = sanitize_text_field($_POST['utm_medium']   ?? $_COOKIE['utm_medium']   ?? '');
+        $utm_campaign = sanitize_text_field($_POST['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? '');
+        $utm_term     = sanitize_text_field($_POST['utm_term']     ?? $_COOKIE['utm_term']     ?? '');
+        $utm_content  = sanitize_text_field($_POST['utm_content']  ?? $_COOKIE['utm_content']  ?? '');
+
+        $utm_block = [];
+
+        if ($utm_source) {
+            $utm_block[] = "Origem: {$utm_source}";
+        }
+        if ($utm_medium) {
+            $utm_block[] = "Mídia: {$utm_medium}";
+        }
+        if ($utm_campaign) {
+            $utm_block[] = "Campanha: {$utm_campaign}";
+        }
+        if ($utm_term) {
+            $utm_block[] = "Termo: {$utm_term}";
+        }
+        if ($utm_content) {
+            $utm_block[] = "Conteúdo: {$utm_content}";
+        }
+
+        $utm_text = '';
+        if (!empty($utm_block)) {
+            $utm_text = "Origem da Conversão: " . implode(" | ", $utm_block);
+        }
+
+
         /*
         |--------------------------------------------------------------------------
         | Substituição de variáveis do template
@@ -2280,12 +2325,13 @@ class Positivo_CRM_Admin
             '{{subject}}' => 'Visita - ' . $agendamento->unidade_nome,
 
             '{{description}}' => sprintf(
-                'Agendamento realizado via site em %s. Responsável: %s %s. Aluno: %s %s.',
+                'Agendamento realizado via site em %s. Responsável: %s %s. Aluno: %s %s. UTM: %s',
                 current_time('d/m/Y H:i'),
                 $agendamento->responsavel_nome,
                 $agendamento->responsavel_sobrenome,
                 $agendamento->aluno_nome,
-                $agendamento->aluno_sobrenome
+                $agendamento->aluno_sobrenome,
+                $utm_text
             ),
 
             '{{requisito_name}}' => sprintf(
@@ -2495,6 +2541,7 @@ class Positivo_CRM_Admin
 
             $dados = [
                 'unidade' => $unidade,
+
                 'dia_semana' => $dia_semana,
                 'hora_inicio' => $hora_inicio,
                 'hora_fim' => $hora_fim,

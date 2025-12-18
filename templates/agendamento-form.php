@@ -1026,6 +1026,12 @@ $html_body = '
 
       <form id="agendamento-form">
         <input type="hidden" id="cadCategoriaId" name="crm_unidadeinteresse" value="" />
+        <input type="hidden" name="utm_source">
+        <input type="hidden" name="utm_medium">
+        <input type="hidden" name="utm_campaign">
+        <input type="hidden" name="utm_term">
+        <input type="hidden" name="utm_content">
+
         <!-- PASSO 1: DADOS DO RESPONSÁVEL -->
         <div class="step-view active-step" data-step="1">
           <h2 class="mb-24">Dados do Responsável</h2>
@@ -2221,9 +2227,22 @@ echo <<<'JAVASCRIPT'
         setTimeout(() => {
             attachListeners();
             syncToForm();
+            // Obtem UTMs
+            ['utm_source','utm_medium','utm_campaign','utm_term','utm_content'].forEach(k => {
+              const v = getParam(k);
+              if (v) {
+                document.querySelector(`input[name="${k}"]`)?.setAttribute('value', v);
+                document.cookie = `${k}=${v}; path=/; max-age=2592000`; // 30 dias
+              }
+            });
         }, 800);
 
     });
+
+    function getParam(name) {
+      return new URLSearchParams(window.location.search).get(name);
+    }
+    
 
     $('#unit-select').on('change', function () {
         const nome = $(this).find('option:selected').text();
