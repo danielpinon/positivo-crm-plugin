@@ -388,13 +388,13 @@ $css_content = '
 
   /* HORÁRIO - NÃO SELECIONADO */
   .time-slot {
-      background-color: #F2A66A !important;
-      color: #ffffff !important;
+      background-color: white !important;
+      color: #F2A66A !important;
       border-radius: 8px !important;
       padding: 10px 16px !important;
       font-weight: 600 !important;
       cursor: pointer !important;
-      border: none !important;
+      border-color: #F2A66A !important;
       box-shadow: none !important;
       transition: all 0.2s ease !important;
   }
