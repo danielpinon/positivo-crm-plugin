@@ -1632,7 +1632,7 @@ echo <<<'JAVASCRIPT'
     ============================================================ */
 
     function carregarProximosDias() {
-        const unidade = $("#unit-select").val();
+        const unidade = $('#cadCategoriaId').val();
 
         if (!unidade) {
             alert("Selecione uma unidade primeiro.");
@@ -2128,105 +2128,136 @@ echo <<<'JAVASCRIPT'
         }
     }
 
+    // ============================================================
+    // Anti-loop / Debounce / Cache
+    // ============================================================
+    let _syncTimer = null;
+    let _last = { cidade: "", unidade: "" };
+    let _isSyncing = false;
+
+    function norm(s) {
+      return (s || "")
+        .toString()
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, ""); // remove acentos
+    }
+
+    function debounceSync() {
+      clearTimeout(_syncTimer);
+      _syncTimer = setTimeout(syncToForm, 200); // debounce real
+    }
+
     /* ============================================================
-        Sincronizar JetFilters → Formulário
+      Seleciona option por texto (mais robusto)
+    ============================================================ */
+    function selectOptionByPartialText(selectEl, text) {
+      if (!selectEl || !text) return false;
+
+      const target = norm(text);
+      const opts = Array.from(selectEl.options || []);
+      let found = opts.find(o => norm(o.textContent) === target);       // match exato
+      if (!found) found = opts.find(o => norm(o.textContent).includes(target)); // fallback parcial
+
+      if (found) {
+        selectEl.value = found.value;
+        // garante selectedIndex coerente
+        selectEl.selectedIndex = opts.indexOf(found);
+        return true;
+      }
+      return false;
+    }
+
+    /* ============================================================
+      Sincronizar JetFilters → Formulário (COM TRAVA + CACHE)
     ============================================================ */
     function syncToForm() {
-        const els = getElements();
-        if (!els.cidadeSite || !els.unidadeSite || !els.cidadeForm || !els.unidadeForm) return;
+      const els = getElements();
+      if (!els?.cidadeSite || !els?.unidadeSite || !els?.cidadeForm || !els?.unidadeForm || !els?.hiddenId) return;
+
+      // evita reentrância
+      if (_isSyncing) return;
+      _isSyncing = true;
+
+      try {
+        // pega textos
+        const cidadeTexto = els.cidadeSite.selectedOptions?.[0]?.textContent?.trim() || "";
+        const unidadeTexto = els.unidadeSite.selectedOptions?.[0]?.textContent?.trim() || "";
+
+        // se nada mudou, sai (isso mata o loop)
+        if (cidadeTexto === _last.cidade && unidadeTexto === _last.unidade) {
+          return;
+        }
+
+        // atualiza cache
+        _last.cidade = cidadeTexto;
+        _last.unidade = unidadeTexto;
+
+        // ✅ CIDADE: só dispara eventos se realmente mudou
+        if (cidadeTexto && els.cidadeForm.value !== cidadeTexto) {
+          els.cidadeForm.value = cidadeTexto;
+          // EVITE ficar disparando input+change em loop
+          fireEvent(els.cidadeForm, "change");
+        }
+
+        // ✅ UNIDADE
+        if (unidadeTexto) {
+          els.unidadeForm.removeAttribute("disabled");
+
+          const ok = selectOptionByPartialText(els.unidadeForm, unidadeTexto);
+
+          if (ok) {
+            // hidden recebe GUID do CRM (value do select do form)
+            els.hiddenId.value = els.unidadeForm.value || "";
+            // dispara change só depois de setar value, e uma vez
+            fireEvent(els.unidadeForm, "change");
+          } else {
+            els.hiddenId.value = "";
+          }
+        } else {
+          els.hiddenId.value = "";
+        }
 
         verificarLiberacao();
 
-        /* --------- CIDADE --------- */
-        const cidadeTexto = els.cidadeSite.selectedOptions[0]?.textContent.trim();
-
-        if (cidadeTexto) {
-            els.cidadeForm.value = cidadeTexto;
-            fireEvent(els.cidadeForm, "input");
-            fireEvent(els.cidadeForm, "change");
-        }
-
-        /* --------- UNIDADE --------- */
-        const unidadeTexto = els.unidadeSite.selectedOptions[0]?.textContent.trim();
-
-        if (unidadeTexto) {
-            setTimeout(() => {
-                els.unidadeForm.removeAttribute("disabled");
-
-                const ok = selectOptionByPartialText(els.unidadeForm, unidadeTexto);
-
-                if (ok) {
-                    // ✅ agora pega o value do #unit-select (GUID do CRM)
-                    els.hiddenId.value = els.unidadeForm.value || "";
-                } else {
-                    els.hiddenId.value = "";
-                }
-
-                verificarLiberacao();
-            }, 300);
-        } else {
-            els.hiddenId.value = "";
-        }
+      } finally {
+        // libera travas
+        setTimeout(() => {
+          _isSyncing = false;
+        }, 250);
+      }
     }
 
-
     /* ============================================================
-        Eventos JetFilters
+      Eventos JetFilters (troca syncToForm por debounceSync)
     ============================================================ */
-    const jetEvents = [
-        "jet-smart-filters/changed",
-        "jet-smart-filters/apply-filters",
-        "jet-smart-filters/updated",
-        "jet-engine/listing-grid/after-ajax"
-    ];
-    jetEvents.forEach(evt => {
-        document.addEventListener(evt, syncToForm);
-    });
+    [
+      "jet-smart-filters/changed",
+      "jet-smart-filters/apply-filters",
+      "jet-smart-filters/updated",
+      "jet-engine/listing-grid/after-ajax"
+    ].forEach(evt => document.addEventListener(evt, debounceSync));
 
     /* ============================================================
-        Eventos diretos nos selects
+      Listeners diretos
     ============================================================ */
     function attachListeners() {
-        const els = getElements();
-
-        if (els.cidadeSite) els.cidadeSite.addEventListener("change", syncToForm);
-        if (els.unidadeSite) els.unidadeSite.addEventListener("change", syncToForm);
+      const els = getElements();
+      if (els?.cidadeSite) els.cidadeSite.addEventListener("change", debounceSync);
+      if (els?.unidadeSite) els.unidadeSite.addEventListener("change", debounceSync);
     }
 
     /* ============================================================
-        MutationObserver Anti-Loop
+      MutationObserver (NÃO observe o body inteiro)
+      -> observe só o container dos filtros (ajuste o seletor)
     ============================================================ */
-    window._isSyncingFilters = false;
-
-    if (!window._jetfiltersObserver) {
-
-        window._jetfiltersObserver = new MutationObserver(() => {
-
-            if (window._isSyncingFilters) return;
-
-            const els = getElements();
-            if (!els.cidadeSite || !els.unidadeSite) return;
-
-            window._isSyncingFilters = true;
-
-            window._jetfiltersObserver.disconnect();
-            syncToForm();
-
-            setTimeout(() => {
-                window._isSyncingFilters = false;
-
-                window._jetfiltersObserver.observe(document.body, {
-                    childList: true,
-                    subtree: true
-                });
-            }, 350);
-        });
-
-        window._jetfiltersObserver.observe(document.body, {
-            childList: true,
-            subtree: true
-        });
+    const filtersRoot = document.querySelector(".jet-smart-filters"); // ajuste!
+    if (filtersRoot && !window._jetfiltersObserver) {
+      window._jetfiltersObserver = new MutationObserver(debounceSync);
+      window._jetfiltersObserver.observe(filtersRoot, { childList: true, subtree: true });
     }
+
 
     /* ============================================================
         Inicialização
