@@ -788,51 +788,58 @@ class Positivo_CRM_Admin
 
             if (!$rows) {
                 continue;
+                
             }
-
             // ---- BUSCA AGENDAMENTOS DO CRM ----
             $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unit, $date_str);
             $intervalos_ocupados = [];
-
             if (!is_wp_error($crm_agendamentos) && isset($crm_agendamentos['result'])) {
-                foreach ($crm_agendamentos['result'] as $ag) {
-                    if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
-                        continue;
-                    }
-                    try {
-                        $intervalos_ocupados[] = [
-                            'start' => new DateTime($ag['scheduledstart']),
-                            'end' => new DateTime($ag['scheduledend']),
-                        ];
-                    } catch (Exception $e) {
-                    }
+                $agendamentos = $crm_agendamentos['result'];
+
+                // 🔥 Se veio só 1 registro (objeto), transforma em array de 1 item
+                if (isset($agendamentos['activityid'])) {
+                    $agendamentos = [$agendamentos];
+                }
+                foreach ($agendamentos as $ag) {
+                    // Debug certo agora
+                    // if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
+                    //     continue;
+                    // }
+                    
+                    array_push( $intervalos_ocupados,
+                     [
+                        'start' => new DateTime($ag['scheduledstart']),
+                        'end'   => new DateTime($ag['scheduledend']),
+                    ]);
                 }
             }
-
             // ---- GERA SLOTS DISPONÍVEIS ----
             $slots = [];
-
             foreach ($rows as $row) {
-                $start = DateTime::createFromFormat('H:i:s', $row->hora_inicio);
-                $end = DateTime::createFromFormat('H:i:s', $row->hora_fim);
-
+                $tz = new DateTimeZone('America/Sao_Paulo');
+                $start = DateTime::createFromFormat(
+                    'Y-m-d H:i:s',
+                    $date_str . ' ' . $row->hora_inicio,
+        $tz
+                );
+                $end = DateTime::createFromFormat(
+                    'Y-m-d H:i:s',
+                    $date_str . ' ' . $row->hora_fim,
+                    $tz
+                );
                 if (!$start || !$end) {
                     continue;
                 }
-
                 $duracao = max(15, intval($row->duracao_visita_minutos ?: 120));
                 $current = clone $start;
-
                 while (true) {
                     $slot_start = clone $current;
                     $slot_end = (clone $slot_start)->add(
                         new DateInterval('PT' . $duracao . 'M')
                     );
-
                     if ($slot_end > $end) {
                         break;
                     }
-
                     $colide = false;
                     foreach ($intervalos_ocupados as $ocupado) {
                         if (
@@ -843,14 +850,13 @@ class Positivo_CRM_Admin
                             break;
                         }
                     }
-
                     if (!$colide) {
                         $slots[] = $slot_start->format('H:i');
                     }
-
                     $current = $slot_end;
                 }
             }
+
 
             if (!empty($slots)) {
                 sort($slots);
