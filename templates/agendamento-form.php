@@ -1902,7 +1902,7 @@ echo <<<'JAVASCRIPT'
       });
     }
     // Carrega as séries escolares da API
-    function loadSeries() {
+    window.loadSeries = () => {
       const selectedUnit = $unitSelect.val();
       if (!selectedUnit) {
         alert("Por favor, selecione uma unidade antes de escolher a data.");
@@ -2258,7 +2258,7 @@ echo <<<'JAVASCRIPT'
       selecionarOpcao(citySelect, window.syncEscola.cidade);
       // Aguarda select de unidade (normalmente vem depois)
       esperarElemento('#unit-select', function (unitSelect) {
-        loadSeries();
+        window.loadSeries();
         unitSelect.disabled = false;
         if (window.syncEscola.unidade) {
           selecionarOpcao(unitSelect, window.syncEscola.unidade);
