@@ -949,28 +949,40 @@ class Positivo_CRM_Admin
             wp_send_json_error(['message' => 'Nenhum horário configurado para este dia.']);
         }
         // ----- AGENDAMENTOS OCUPADOS (CRM) -----
-        $intervalos_ocupados = [];
         $api = new Positivo_CRM_API();
         $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unit, $date);
+        $intervalos_ocupados = [];
         if (
-            !is_wp_error($crm_agendamentos)
-            && isset($crm_agendamentos['result'])
-            && is_array($crm_agendamentos['result'])
+            !is_wp_error($crm_agendamentos) &&
+            isset($crm_agendamentos['result'])
         ) {
-            foreach ($crm_agendamentos['result'] as $ag) {
-                if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
+            // 🔥 NORMALIZA: se vier objeto único, vira array
+            $agendamentos = $crm_agendamentos['result'];
+
+            if (isset($agendamentos['activityid'])) {
+                $agendamentos = [$agendamentos];
+            }
+
+            foreach ($agendamentos as $ag) {
+
+                if (
+                    empty($ag['scheduledstart']['#text']) ||
+                    empty($ag['scheduledend']['#text'])
+                ) {
                     continue;
                 }
+
                 try {
                     $intervalos_ocupados[] = [
-                        'start' => new DateTime($ag['scheduledstart']),
-                        'end' => new DateTime($ag['scheduledend']),
+                        'start' => new DateTime($ag['scheduledstart']['#text']),
+                        'end'   => new DateTime($ag['scheduledend']['#text']),
                     ];
                 } catch (Exception $e) {
-                    continue;
+                    // opcional: log
                 }
             }
         }
+
         // ----- GERAR HORÁRIOS DISPONÍVEIS -----
         $available_times = [];
         foreach ($rows as $row) {
