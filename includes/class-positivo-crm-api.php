@@ -765,20 +765,65 @@ class Positivo_CRM_API
 	 */
 	public function ajax_get_series()
 	{
-		// Endpoint público - não requer autenticação
-
 		$response = $this->get_series_escolares();
 
 		if (is_wp_error($response)) {
-			wp_send_json_error(array(
+			wp_send_json_error([
 				'message' => $response->get_error_message(),
-				'code' => $response->get_error_code(),
-				'data' => $response->get_error_data(),
-			));
+				'code'    => $response->get_error_code(),
+				'data'    => $response->get_error_data(),
+			]);
 		}
+
+		if (!isset($response['result']) || !is_array($response['result'])) {
+			wp_send_json_success($response);
+		}
+
+		$series = $response['result'];
+
+		// 🔥 Função de ordenação pedagógica
+		usort($series, function ($a, $b) {
+
+			$getOrderData = function ($name) {
+
+				$name = mb_strtolower($name);
+
+				// Ordem dos níveis
+				$levels = [
+					'berçário'        => 1,
+					'infantil'        => 2,
+					'anos iniciais'   => 3,
+					'anos finais'     => 4,
+					'ensino médio'    => 5,
+				];
+
+				$level = 99;
+				foreach ($levels as $key => $value) {
+					if (str_contains($name, $key)) {
+						$level = $value;
+						break;
+					}
+				}
+
+				// Extrai número (1º, 2ª, etc.)
+				preg_match('/(\d+)/', $name, $match);
+				$number = isset($match[1]) ? (int) $match[1] : 0;
+
+				return [$level, $number, $name];
+			};
+
+			[$levelA, $numA, $nameA] = $getOrderData($a['cad_name']);
+			[$levelB, $numB, $nameB] = $getOrderData($b['cad_name']);
+
+			return [$levelA, $numA, $nameA] <=> [$levelB, $numB, $nameB];
+		});
+
+		// Reatribui ordenado
+		$response['result'] = array_values($series);
 
 		wp_send_json_success($response);
 	}
+
 
 	/**
 	 * Callback AJAX para buscar alunos do responsável.
