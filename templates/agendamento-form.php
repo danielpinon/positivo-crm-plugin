@@ -1485,7 +1485,6 @@ echo <<<'JAVASCRIPT'
     // ==================== CARREGAMENTO DE UNIDADES ====================
 
     loadUnits();
-    loadSeries();
 
     $citySelect.on("change", function() {
       const city = $(this).val();
@@ -1638,6 +1637,7 @@ echo <<<'JAVASCRIPT'
               placeholder: 'Digite o nome da escola',
               allowClear: true,
               minimumInputLength: 3,
+              tags: true, // 🔥 permite "Outro"
               language: {
                   inputTooShort: () => 'Digite pelo menos 3 caracteres',
                   noResults: () => 'Nenhuma escola encontrada',
@@ -1652,12 +1652,24 @@ echo <<<'JAVASCRIPT'
                       nonce: PositivoCRM.nonce,
                       descricao: params.term
                   }),
-                  processResults: resp => ({
-                      results: resp?.data?.data?.map(s => ({
-                          id: s.descricao,
-                          text: s.descricao
-                      })) || []
-                  })
+                  processResults: resp => {
+                    let results = resp?.data?.data?.map(s => ({
+                        id: s.descricao,
+                        text: s.descricao
+                    })) || [];
+
+                    results.push({
+                        id: 'Não Encontrei minha Escola',
+                        text: 'Não Encontrei minha Escola'
+                    });
+
+                    results.push({
+                        id: 'Primeira Escola',
+                        text: 'Primeira Escola'
+                    });
+
+                    return { results };
+                  }
               },
               tags: true
           });
@@ -2249,6 +2261,7 @@ echo <<<'JAVASCRIPT'
 
         if (window.syncEscola.unidade) {
           selecionarOpcao(unitSelect, window.syncEscola.unidade);
+          loadSeries();
         }
 
       });
