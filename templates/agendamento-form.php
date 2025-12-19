@@ -1634,46 +1634,51 @@ echo <<<'JAVASCRIPT'
           }
 
           $el.select2({
-              placeholder: 'Digite o nome da escola',
-              allowClear: true,
-              minimumInputLength: 3,
-              tags: true, // 🔥 permite "Outro"
-              language: {
-                  inputTooShort: () => 'Digite pelo menos 3 caracteres',
-                  noResults: () => 'Nenhuma escola encontrada',
-                  searching: () => 'Buscando escolas...'
-              },
-              ajax: {
-                  url: PositivoCRM.ajax_url,
-                  type: 'POST',
-                  delay: 500,
-                  data: params => ({
-                      action: 'positivo_crm_search_eschool_public',
-                      nonce: PositivoCRM.nonce,
-                      descricao: params.term
-                  }),
-                  processResults: resp => {
+            placeholder: 'Digite o nome da escola',
+            allowClear: true,
+            minimumInputLength: 3,
+
+            // 🔒 NÃO permite criar opção digitando
+            tags: false,
+            createTag: () => null,
+
+            language: {
+                inputTooShort: () => 'Digite pelo menos 3 caracteres',
+                noResults: () => 'Nenhuma escola encontrada',
+                searching: () => 'Buscando escolas...'
+            },
+
+            ajax: {
+                url: PositivoCRM.ajax_url,
+                type: 'POST',
+                delay: 500,
+                data: params => ({
+                    action: 'positivo_crm_search_eschool_public',
+                    nonce: PositivoCRM.nonce,
+                    descricao: params.term
+                }),
+                processResults: resp => {
                     let results = resp?.data?.data?.map(s => ({
                         id: s.descricao,
                         text: s.descricao
                     })) || [];
 
-                    results.push({
-                        id: 'Não Encontrei minha Escola',
-                        text: 'Não Encontrei minha Escola'
-                    });
-
-                    results.push({
-                        id: 'Primeira Escola',
-                        text: 'Primeira Escola'
-                    });
-
+                    // ➕ opções fixas (selecionáveis, mas NÃO digitáveis)
+                    results.push(
+                        {
+                            id: 'nao_encontrei',
+                            text: 'Não Encontrei minha Escola'
+                        },
+                        {
+                            id: 'primeira_escola',
+                            text: 'Primeira Escola'
+                        }
+                    );
                     return { results };
-                  }
-              },
-              tags: true
+                }
+            }
           });
-      });
+
     }
     initEscolaSelect($('.aluno-fields').first());
     // $('.escola-select').select2({
