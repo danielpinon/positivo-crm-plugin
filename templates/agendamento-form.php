@@ -2038,9 +2038,11 @@ echo <<<'JAVASCRIPT'
 
       // 🔥 ADICIONA BOTÃO REMOVER (apenas nos clones)
       const $removeBtn = $(`
-        <button type="button" class="btn-remove-aluno">
-          Remover aluno
-        </button>
+        <div style="width:100%; text-aling:right;">
+          <button type="button" class="btn-remove-aluno">
+            X
+          </button>
+        </div>
       `);
 
       $removeBtn.on("click", function () {
@@ -2048,8 +2050,12 @@ echo <<<'JAVASCRIPT'
       });
 
       // Coloca o botão no final do bloco
-      $clone.append($removeBtn);
-
+      $clone.prepend($removeBtn);
+      const $hr = $(`
+        <hr />
+      `);
+      // Coloca o botão no final do bloco
+      $clone.prepend($hr);
       // 🔥 INSERE NO DOM
       $clone.insertBefore($btn);
 
