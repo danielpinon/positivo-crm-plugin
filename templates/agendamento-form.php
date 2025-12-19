@@ -996,6 +996,9 @@ $css_content = '
     border-color: #d0d0d0;
   }
 
+  .select2-container--default .select2-results__option--disabled{
+    color:#ef6c00 !important;
+  }
 
   .btn-remove-aluno {
     border-radius: 8px !important;
