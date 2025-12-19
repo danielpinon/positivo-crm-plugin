@@ -1905,7 +1905,7 @@ echo <<<'JAVASCRIPT'
     window.loadSeries = () => {
       const selectedUnit = $unitSelect.val();
       if (!selectedUnit) {
-        alert("Por favor, selecione uma unidade antes de escolher a data.");
+        // alert("Por favor, selecione uma unidade antes de escolher a data.");
         return;
       }
       $.ajax({
@@ -2264,8 +2264,12 @@ echo <<<'JAVASCRIPT'
       selecionarOpcao(citySelect, window.syncEscola.cidade);
       // Aguarda select de unidade (normalmente vem depois)
       esperarElemento('#unit-select', function (unitSelect) {
-        window.loadSeries();
         unitSelect.disabled = false;
+        setTimeout(()=>{
+          if (window.syncEscola.unidade) {
+            window.loadSeries();
+          }
+        },2000);
         if (window.syncEscola.unidade) {
           selecionarOpcao(unitSelect, window.syncEscola.unidade);
         }
