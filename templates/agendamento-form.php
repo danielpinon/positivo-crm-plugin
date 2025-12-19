@@ -1626,59 +1626,59 @@ echo <<<'JAVASCRIPT'
     };
     function initEscolaSelect(context = document) {
       $(context).find('.escola-select').each(function () {
-          const $el = $(this);
+        const $el = $(this);
 
-          // ✅ Só destrói se o Select2 EXISTIR de verdade
-          if ($el.data('select2')) {
-              $el.select2('destroy');
+        // ✅ Só destrói se o Select2 EXISTIR de verdade
+        if ($el.data('select2')) {
+            $el.select2('destroy');
+        }
+
+        $el.select2({
+          placeholder: 'Digite o nome da escola',
+          allowClear: true,
+          minimumInputLength: 3,
+
+          // 🔒 NÃO permite criar opção digitando
+          tags: false,
+          createTag: () => null,
+
+          language: {
+              inputTooShort: () => 'Digite pelo menos 3 caracteres',
+              noResults: () => 'Nenhuma escola encontrada',
+              searching: () => 'Buscando escolas...'
+          },
+
+          ajax: {
+              url: PositivoCRM.ajax_url,
+              type: 'POST',
+              delay: 500,
+              data: params => ({
+                  action: 'positivo_crm_search_eschool_public',
+                  nonce: PositivoCRM.nonce,
+                  descricao: params.term
+              }),
+              processResults: resp => {
+                  let results = resp?.data?.data?.map(s => ({
+                      id: s.descricao,
+                      text: s.descricao
+                  })) || [];
+
+                  // ➕ opções fixas (selecionáveis, mas NÃO digitáveis)
+                  results.push(
+                      {
+                          id: 'nao_encontrei',
+                          text: 'Não Encontrei minha Escola'
+                      },
+                      {
+                          id: 'primeira_escola',
+                          text: 'Primeira Escola'
+                      }
+                  );
+                  return { results };
+              }
           }
-
-          $el.select2({
-            placeholder: 'Digite o nome da escola',
-            allowClear: true,
-            minimumInputLength: 3,
-
-            // 🔒 NÃO permite criar opção digitando
-            tags: false,
-            createTag: () => null,
-
-            language: {
-                inputTooShort: () => 'Digite pelo menos 3 caracteres',
-                noResults: () => 'Nenhuma escola encontrada',
-                searching: () => 'Buscando escolas...'
-            },
-
-            ajax: {
-                url: PositivoCRM.ajax_url,
-                type: 'POST',
-                delay: 500,
-                data: params => ({
-                    action: 'positivo_crm_search_eschool_public',
-                    nonce: PositivoCRM.nonce,
-                    descricao: params.term
-                }),
-                processResults: resp => {
-                    let results = resp?.data?.data?.map(s => ({
-                        id: s.descricao,
-                        text: s.descricao
-                    })) || [];
-
-                    // ➕ opções fixas (selecionáveis, mas NÃO digitáveis)
-                    results.push(
-                        {
-                            id: 'nao_encontrei',
-                            text: 'Não Encontrei minha Escola'
-                        },
-                        {
-                            id: 'primeira_escola',
-                            text: 'Primeira Escola'
-                        }
-                    );
-                    return { results };
-                }
-            }
-          });
-
+        });
+      });
     }
     initEscolaSelect($('.aluno-fields').first());
     // $('.escola-select').select2({
