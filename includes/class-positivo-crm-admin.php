@@ -747,7 +747,7 @@ class Positivo_CRM_Admin
 
         $max_dates = 5;
         $found = [];
-        $today = new DateTime('today');
+        $today = new DateTime('tomorrow');
         $api = new Positivo_CRM_API();
 
         // Mapeamento de dias
@@ -859,7 +859,7 @@ class Positivo_CRM_Admin
                     'weekday' => $dia_semana,
                     'times' => array_values(array_unique($slots)),
                 ];
-            }
+            } 
         }
 
         if (empty($found)) {
