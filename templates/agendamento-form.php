@@ -430,36 +430,35 @@ $css_content = '
       top:0; left:0; right:0; bottom:0;
       background: rgba(0,0,0,0.55);
       z-index: 999999;
-      display: flex;
       justify-content: center;
-      align-items: center;
   }
 
   .modal-sucesso .modal-content {
       background: #fff;
       width: 90%;
       max-width: 480px;
-      padding: 40px;
+      padding: 24px 40px;
       border-radius: 18px;
       text-align: center;
       font-family: Inter, sans-serif;
+      overflow: auto;
   }
 
   .modal-sucesso .icon-success {
-      font-size: 55px;
+      font-size: 26px;
       color: #4CAF50;
       margin-bottom: 20px;
   }
 
   .modal-sucesso h2 {
-      font-size: 26px;
+      font-size: 18px;
       margin-bottom: 10px;
       font-weight: 700;
   }
 
   .modal-sucesso .sub {
       color: #444;
-      margin-bottom: 25px;
+      margin-bottom: 15px;
   }
 
   .modal-sucesso .box-info {
@@ -468,7 +467,7 @@ $css_content = '
       border-radius: 12px;
       padding: 20px;
       text-align: left;
-      margin-bottom: 30px;
+      margin-bottom: 15px;
   }
 
   .modal-sucesso h3 {
@@ -997,6 +996,22 @@ $css_content = '
   }
 
 
+  .btn-remove-aluno {
+    background: #fff;
+    color: #c62828;
+    border: 2px solid #c62828;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .btn-remove-aluno:hover {
+    background: #fdecea;
+  }
+
+
 
 ';
 
@@ -1077,13 +1092,13 @@ $html_body = '
             <label for="responsavel_email" class="label-line">E-mail do responsável <span class="required">*</span></label>
             <input type="email" id="responsavel_email" name="responsavel_email" placeholder="Informe seu melhor e-mail" required />
           </div>
-          <div class="form-group">
+          <!-- <div class="form-group">
             <label for="responsavel_serie_id" class="label-line">Série de Interesse <span class="required">*</span></label>
             <select id="responsavel_serie_id" name="responsavel_serie_id" class="serie-select data-select" required>
               <option value="">Carregando...</option>
             </select>
             <input type="hidden" id="responsavel_serie" name="responsavel_serie" />
-          </div>
+          </div> -->
           <div class="footer-actions">
             <button type="button" class="btn next-step search-responsavel" data-next-step="2">Informar dados do Aluno</button>
           </div>
@@ -1123,7 +1138,7 @@ $html_body = '
                 <input type="text" name="aluno_nome[]" required />
               </div>
               <div class="form-group escola-origem-group">
-                <label>Escola de Origem <span class="required">*</span></label>
+                <label>Selecione a Escola de Origem <span class="required">*</span></label>
                 <select
                   class="escola-select"
                   name="aluno_escola[]"
@@ -1208,8 +1223,6 @@ $html_body = '
         <div class="icon-success">✔</div>
 
         <h2>Agendamento realizado<br>com sucesso!</h2>
-        <p class="sub">Seu atendimento foi registrado com sucesso.<br>Confira os detalhes:</p>
-
         <div class="box-info">
 
             <h3>Responsável:</h3>
@@ -1628,7 +1641,7 @@ echo <<<'JAVASCRIPT'
               language: {
                   inputTooShort: () => 'Digite pelo menos 3 caracteres',
                   noResults: () => 'Nenhuma escola encontrada',
-                  searching: () => 'Buscando...'
+                  searching: () => 'Buscando escolas...'
               },
               ajax: {
                   url: PositivoCRM.ajax_url,
@@ -1873,12 +1886,18 @@ echo <<<'JAVASCRIPT'
     }
     // Carrega as séries escolares da API
     function loadSeries() {
+      const selectedUnit = $unitSelect.val();
+      if (!selectedUnit) {
+        alert("Por favor, selecione uma unidade antes de escolher a data.");
+        return;
+      }
       $.ajax({
         url: PositivoCRM.ajax_url,
         type: "POST",
         data: {
           action: "positivo_crm_get_series",
           nonce: PositivoCRM.nonce,
+          unit: selectedUnit
         },
         success: function(response) {
           let series = [];
@@ -1975,7 +1994,7 @@ echo <<<'JAVASCRIPT'
       });
       return isValid;
     }
-    /* ---------------------- ADD NOVO ALUNO ---------------------- */
+    /* ---------------------- ADD / REMOVE ALUNO ---------------------- */
     $form.on("click", ".add-aluno", function (e) {
       e.preventDefault();
 
@@ -1985,12 +2004,12 @@ echo <<<'JAVASCRIPT'
       // 🔥 clone limpo
       const $clone = $container.clone(false, false);
 
-      // 🔥 REMOVE markup do Select2 que veio no clone
+      // 🔥 REMOVE Select2 antigo do clone
       $clone.find('.select2').remove();
       $clone.find('.escola-select')
-          .removeClass('select2-hidden-accessible')
-          .removeAttr('data-select2-id')
-          .val('');
+        .removeClass('select2-hidden-accessible')
+        .removeAttr('data-select2-id')
+        .val('');
 
       // 🔥 LIMPA CAMPOS
       $clone.find("input").val("");
@@ -1999,12 +2018,30 @@ echo <<<'JAVASCRIPT'
       // 🔥 REMOVE IDs DUPLICADOS
       $clone.find("[id]").removeAttr("id");
 
+      // 🔥 ADICIONA BOTÃO REMOVER (apenas nos clones)
+      const $removeBtn = $(`
+        <button type="button" class="btn-remove-aluno">
+          Remover aluno
+        </button>
+      `);
+
+      $removeBtn.on("click", function () {
+        $clone.remove();
+      });
+
+      // Coloca o botão no final do bloco
+      $clone.append($removeBtn);
+
       // 🔥 INSERE NO DOM
       $clone.insertBefore($btn);
 
-      // 🔥 INICIALIZA SELECT2 APENAS NO CLONE
+      // 🔥 REINICIALIZA SELECT2 APENAS NO CLONE
       initEscolaSelect($clone);
+
+      // 🔥 GARANTE ano de matrícula
+      preencherAnoMatricula($clone.find(".ano-matricula-select"));
     });
+
 
     /* ---------------------- EDITAR DADOS ---------------------- */
     $form.on("click", ".edit-dados", function (e) {
@@ -2021,7 +2058,7 @@ echo <<<'JAVASCRIPT'
         $(".alunos-lista").addClass("hidden");
       }
     });
-    /* ---------------------- ATUALIZAR SÉRIE ---------------------- */
+    /* ---------------------- ATUALIZAR SÉRIE ---------------------- 
     $form.on("change", ".serie-select", function () {
       const $select = $(this);
       const selected = $select.find("option:selected");
@@ -2030,7 +2067,7 @@ echo <<<'JAVASCRIPT'
       if ($select.attr("id") === "responsavel_serie_id") {
         $("#responsavel_serie").val(serieName);
       }
-    });
+    });*/
     /* ---------------------- SUBMIT DO AGENDAMENTO ---------------------- */
     $form.on("submit", function (e) {
         e.preventDefault();
