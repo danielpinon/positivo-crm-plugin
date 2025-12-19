@@ -980,6 +980,7 @@ $css_content = '
   .select2-results__option,
   .select2-selection__rendered{
     font-weight: initial !important;
+    font-family: var(--font-main);
   }
 
   .select2-container--default .select2-selection--single .select2-selection__clear{
@@ -997,20 +998,20 @@ $css_content = '
 
 
   .btn-remove-aluno {
-    background: #fff;
-    color: #c62828;
-    border: 2px solid #c62828;
-    border-radius: 8px;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
+    border-radius: 8px !important;
+    padding: 8px 14px !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    cursor: pointer !important;
   }
 
   .btn-remove-aluno:hover {
     background: #fdecea;
   }
 
+  .aluno-fields label{
+    margin-bottom:10px;
+  }
 
 
 ';
@@ -1678,6 +1679,10 @@ echo <<<'JAVASCRIPT'
               }
           }
         });
+        // 🔥 ao abrir o select, limpa o valor anterior
+        $el.on('select2:opening', function () {
+            $(this).val(null).trigger('change');
+        });
       });
     }
     initEscolaSelect($('.aluno-fields').first());
@@ -2038,8 +2043,8 @@ echo <<<'JAVASCRIPT'
 
       // 🔥 ADICIONA BOTÃO REMOVER (apenas nos clones)
       const $removeBtn = $(`
-        <div style="width:100%; text-aling:right;">
-          <button type="button" class="btn-remove-aluno">
+        <div style="width:100%;text-align: end;margin-top: 10px;">
+          <button type="button" class="btn-remove-aluno" style="margin-bottom: -20px;">
             X
           </button>
         </div>
