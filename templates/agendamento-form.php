@@ -2246,24 +2246,17 @@ echo <<<'JAVASCRIPT'
   // 3️⃣ Preencher formulário
   // ===============================
   function tentarPreencherFormulario() {
-
     if (!window.syncEscola.cidade) return;
-
     // Aguarda select de cidade
     esperarElemento('#city-select', function (citySelect) {
-
       selecionarOpcao(citySelect, window.syncEscola.cidade);
-
       // Aguarda select de unidade (normalmente vem depois)
       esperarElemento('#unit-select', function (unitSelect) {
-
+        loadSeries();
         unitSelect.disabled = false;
-
         if (window.syncEscola.unidade) {
           selecionarOpcao(unitSelect, window.syncEscola.unidade);
-          loadSeries();
         }
-
       });
 
     });
