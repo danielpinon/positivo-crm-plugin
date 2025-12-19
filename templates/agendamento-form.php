@@ -2020,6 +2020,7 @@ echo <<<'JAVASCRIPT'
 
       // 🔥 clone limpo
       const $clone = $container.clone(false, false);
+      console.log($clone);
 
       // 🔥 REMOVE Select2 antigo do clone
       $clone.find('.select2').remove();
