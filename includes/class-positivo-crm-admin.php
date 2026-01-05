@@ -791,7 +791,8 @@ class Positivo_CRM_Admin
                 
             }
             // ---- BUSCA AGENDAMENTOS DO CRM ----
-            $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unit, $date_str);
+            $unitTemp = preg_replace('/[{}]/', '', $unit);
+            $crm_agendamentos = $api->get_agendamentos_by_unidade_and_data($unitTemp, $date_str);
             $intervalos_ocupados = [];
             if (!is_wp_error($crm_agendamentos) && isset($crm_agendamentos['result'])) {
                 $agendamentos = $crm_agendamentos['result'];
@@ -910,6 +911,7 @@ class Positivo_CRM_Admin
         }
         $date = sanitize_text_field($_POST['date'] ?? '');
         $unit = sanitize_text_field($_POST['unit'] ?? '');
+        
         if (!$date) {
             wp_send_json_error(['message' => 'Data não fornecida.']);
         }

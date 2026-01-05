@@ -199,6 +199,25 @@ $css_content = '
     gap: 24px;
   }
 
+  /* Estado bloqueado */
+  .page-wrapper :is(
+    input:disabled,
+    select:disabled,
+    textarea:disabled,
+    button:disabled
+  ) {
+    background-color: #f3f3f3 !important;
+    color: #9a9a9a !important;
+    border-color: #d6d6d6 !important;
+    cursor: not-allowed;
+  }
+
+  .page-wrapper.is-disabled {
+    opacity: 0.45;
+    filter: grayscale(1);
+  }
+
+
 
   /* CARD FORM PRINCIPAL */
   .form-card {
@@ -1505,9 +1524,45 @@ echo <<<'JAVASCRIPT'
       }
     });
 
-    $unitSelect.on("change", function() {
-      $cadCategoria.val($(this).val());
+    $unitSelect.on("change", function () {
+      const unitSelected = $(this).val();
+      const citySelected = $citySelect.val();
+      // seta categoria (mantive seu comportamento)
+      $cadCategoria.val(unitSelected);
+      // validações básicas
+      if (!citySelected || !unitSelected) {
+        $('.serie-select')
+          .html('<option value="">Selecione a série</option>')
+          .prop('disabled', true);
+        return;
+      }
+      const unidadesCidade = unitsByCity[citySelected];
+      if (!Array.isArray(unidadesCidade)) {
+        console.error('Cidade não encontrada em unitsByCity:', citySelected);
+        return;
+      }
+      const unidade = unidadesCidade.find(u => u.id === unitSelected);
+      if (!unidade || !Array.isArray(unidade.series)) {
+        console.error('Unidade ou séries não encontradas:', unidade);
+        $('.serie-select')
+          .html('<option value="">Nenhuma série disponível</option>')
+          .prop('disabled', true);
+        return;
+      }
+      const series = unidade.series;
+      // monta options
+      let serieOptions = '<option value="">Selecione a série</option>';
+      series.forEach(s => {
+        const id = (s.id || '').replace(/[{}]/g, '');
+        const name = s.nome || '';
+        if (id && name) {
+          serieOptions += `<option value="${id}">${name}</option>`;
+        }
+      });
+      $('.serie-select').html(serieOptions).prop('disabled', false);
+      console.log('Séries carregadas:', series);
     });
+
 
     // ===================== BUSCA RESPONSÁVEL =====================
 
@@ -1883,9 +1938,13 @@ echo <<<'JAVASCRIPT'
               if (!nome || !id) return;
               const cidade = extractCity(endereco);
               const cityKey = cidade || "Outra";
+              let series = [];
+              // console.log(JSON.parse(unit.pos_mapeamentoseries));
+              if (unit.pos_mapeamentoseries) { try { const parsed = JSON.parse(unit.pos_mapeamentoseries); if (Array.isArray(parsed)) { series = parsed.map(s => ({ id: s.id, nome: s.nome })).filter(s => s.id && s.nome); } } catch (e) { console.error("Erro ao parsear séries da unidade:", nome, e); } }
               if (!unitsByCity[cityKey]) { unitsByCity[cityKey] = []; }
-              unitsByCity[cityKey].push({ id: id, name: nome, endereco: endereco, cidade: cidade });
+              unitsByCity[cityKey].push({ id: id, name: nome, endereco: endereco, cidade: cidade, series: series });
             });
+            window.unidades = unitsByCity;
             const sortedCities = Object.keys(unitsByCity).sort(function(a, b) {
               return a.localeCompare(b, "pt-BR");
             });
@@ -1910,56 +1969,56 @@ echo <<<'JAVASCRIPT'
       });
     }
     // Carrega as séries escolares da API
-    window.loadSeries = () => {
-      const selectedUnit = $unitSelect.val();
-      if (!selectedUnit) {
-        // alert("Por favor, selecione uma unidade antes de escolher a data.");
-        return;
-      }
-      $.ajax({
-        url: PositivoCRM.ajax_url,
-        type: "POST",
-        data: {
-          action: "positivo_crm_get_series",
-          nonce: PositivoCRM.nonce,
-          unit: selectedUnit
-        },
-        success: function(response) {
-          let series = [];
-          if (response.success && response.data) {
-            if (Array.isArray(response.data)) {
-              series = response.data;
-            } else if (response.data.resultset && response.data.resultset.result) {
-              series = response.data.resultset.result;
-            } else if (Array.isArray(response.data.result)) {
-              series = response.data.result;
-            } else if (Array.isArray(response.data.value)) {
-              series = response.data.value;
-            }
-          }
-          if (series && series.length > 0) {
-            let serieOptions = '<option value=\"\">Selecione a série</option>';
-            series.forEach(function(s) {
-              const id = s.cad_servicoeducacionalid || s.id || '';
-              const name = s.cad_name || s.name || '';
-              // Remove chaves do GUID se houver
-              const cleanId = id.replace(/[{}]/g, '');
-              if (cleanId && name) {
-                serieOptions += `<option value="${cleanId}" data-name="${name}">${name}</option>`;
-              }
-            });
-            $('.serie-select').html(serieOptions).prop('disabled', false);
-          } else {
-            console.error('Nenhuma série encontrada ou formato inesperado:', response);
-            $('.serie-select').html('<option value=\"\">Erro ao carregar séries</option>').prop('disabled', true);
-          }
-        },
-        error: function() {
-          console.error('Erro de comunicação ao carregar séries.');
-          $('.serie-select').html('<option value=\"\">Erro de rede</option>').prop('disabled', true);
-        }
-      });
-    }
+    // window.loadSeries = () => {
+    //   const selectedUnit = $unitSelect.val();
+    //   if (!selectedUnit) {
+    //     // alert("Por favor, selecione uma unidade antes de escolher a data.");
+    //     return;
+    //   }
+    //   $.ajax({
+    //     url: PositivoCRM.ajax_url,
+    //     type: "POST",
+    //     data: {
+    //       action: "positivo_crm_get_series",
+    //       nonce: PositivoCRM.nonce,
+    //       unit: selectedUnit
+    //     },
+    //     success: function(response) {
+    //       let series = [];
+    //       if (response.success && response.data) {
+    //         if (Array.isArray(response.data)) {
+    //           series = response.data;
+    //         } else if (response.data.resultset && response.data.resultset.result) {
+    //           series = response.data.resultset.result;
+    //         } else if (Array.isArray(response.data.result)) {
+    //           series = response.data.result;
+    //         } else if (Array.isArray(response.data.value)) {
+    //           series = response.data.value;
+    //         }
+    //       }
+    //       if (series && series.length > 0) {
+    //         let serieOptions = '<option value=\"\">Selecione a série</option>';
+    //         series.forEach(function(s) {
+    //           const id = s.cad_servicoeducacionalid || s.id || '';
+    //           const name = s.cad_name || s.name || '';
+    //           // Remove chaves do GUID se houver
+    //           const cleanId = id.replace(/[{}]/g, '');
+    //           if (cleanId && name) {
+    //             serieOptions += `<option value="${cleanId}" data-name="${name}">${name}</option>`;
+    //           }
+    //         });
+    //         $('.serie-select').html(serieOptions).prop('disabled', false);
+    //       } else {
+    //         console.error('Nenhuma série encontrada ou formato inesperado:', response);
+    //         $('.serie-select').html('<option value=\"\">Erro ao carregar séries</option>').prop('disabled', true);
+    //       }
+    //     },
+    //     error: function() {
+    //       console.error('Erro de comunicação ao carregar séries.');
+    //       $('.serie-select').html('<option value=\"\">Erro de rede</option>').prop('disabled', true);
+    //     }
+    //   });
+    // }
     $form.on("change", "#agendamentoData", function() {
       const selectedDate = $(this).val();
       const selectedUnit = $unitSelect.val();
@@ -2239,6 +2298,7 @@ echo <<<'JAVASCRIPT'
       console.log('🏫 Unidade capturada:', option.text);
       tentarPreencherFormulario();
     }
+    atualizarDisabledFormulario();
   });
 
   // ===============================
@@ -2275,11 +2335,12 @@ echo <<<'JAVASCRIPT'
         unitSelect.disabled = false;
         setTimeout(()=>{
           if (window.syncEscola.unidade) {
-            window.loadSeries();
+            // window.loadSeries();
           }
         },2000);
         if (window.syncEscola.unidade) {
           selecionarOpcao(unitSelect, window.syncEscola.unidade);
+          atualizarDisabledFormulario();
         }
       });
 
@@ -2315,6 +2376,50 @@ echo <<<'JAVASCRIPT'
 
     console.log('✅ Opção marcada (contains):', option.text);
   }
+
+    // ===============================
+    // 5️⃣ Controla disabled do HTML
+    // ===============================
+    function atualizarDisabledFormulario() {
+
+      const wrapper = document.querySelector('.page-wrapper');
+      if (!wrapper) return;
+
+      const liberar = window.syncEscola.cidade && window.syncEscola.unidade;
+
+      const campos = wrapper.querySelectorAll(
+        'input, select, textarea, button'
+      );
+
+      campos.forEach(el => {
+
+        // 🔓 Nunca desabilita os selects principais
+        if (el.id === 'city-select' || el.id === 'unit-select') return;
+
+        el.disabled = !liberar;
+      });
+      atualizarClasseVisual();
+
+      console.log(
+        liberar
+          ? '🟢 HTML habilitado'
+          : '🔒 HTML desabilitado'
+      );
+
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      atualizarDisabledFormulario();
+    });
+
+    function atualizarClasseVisual() {
+      const wrapper = document.querySelector('.page-wrapper');
+      if (!wrapper) return;
+
+      const liberar = window.syncEscola.cidade && window.syncEscola.unidade;
+      wrapper.classList.toggle('is-disabled', !liberar);
+    }
+
+
 })(jQuery);
 JAVASCRIPT;
 echo '</script>';
