@@ -107,6 +107,12 @@ class Positivo_CRM_Admin
             'utm_content'  => sanitize_text_field($form['utm_content'] ?? $_COOKIE['utm_content'] ?? ''),
         ];
 
+        /**
+         * CAPTURA DE RECURSO E SERVIÇO
+         */
+        $servico = sanitize_text_field($form['servico'] ?? $_COOKIE['servico'] ?? '');
+        $recurso = sanitize_text_field($form['recurso'] ?? $_COOKIE['recurso'] ?? '');
+
 
         Positivo_CRM_Logger::info("FORM DECODIFICADO", [
             'form' => $form
@@ -180,6 +186,37 @@ class Positivo_CRM_Admin
                 ]);
             }
         }
+        /**
+         * Quantidade de tempo de cada unidade e dia da semana
+         */
+         $dias_map = [
+            'monday' => 'segunda',
+            'tuesday' => 'terca',
+            'wednesday' => 'quarta',
+            'thursday' => 'quinta',
+            'friday' => 'sexta',
+            'saturday' => 'sabado',
+            'sunday' => 'domingo',
+        ];
+        $date = new DateTime($form['agendamento_data']);
+        $date_str = $date->format('Y-m-d');
+        $weekday_en = strtolower($date->format('l'));
+        $dia_semana = $dias_map[$weekday_en] ?? '';
+        global $wpdb;
+        $table_horarios = $wpdb->prefix . 'positivo_unidade_horarios';
+        $rows = $wpdb->get_results(
+        $wpdb->prepare(
+                "SELECT hora_inicio, hora_fim, duracao_visita_minutos FROM {$table_horarios}
+                WHERE unidade = %s AND dia_semana = %s",
+                $unidade_id,
+                $dia_semana
+            )
+        );
+        $duracao = isset($rows[0]->duracao_visita_minutos)
+        ? (int) $rows[0]->duracao_visita_minutos
+        : 120; // fallback padrão
+
+           
 
         // 🔹 Segurança final
         $unidade_nome = $unidade_nome ?: '';
@@ -214,8 +251,11 @@ class Positivo_CRM_Admin
             'data_agendamento' => sanitize_text_field($form['agendamento_data'] ?? ''),
             'hora_agendamento' => sanitize_text_field($form['agendamento_hora'] ?? ''),
 
+            'servico' => $servico,
+            'recurso' => $recurso,
+
             // Meta
-            'duracao_minutos' => 120,
+            'duracao_minutos' => $duracao,
             'status' => 'pendente',
             'created_by' => 0,
             'enviado_crm' => 0,
@@ -1083,6 +1123,8 @@ class Positivo_CRM_Admin
             aluno_escola_origem varchar(255) DEFAULT NULL,
             unidade_id varchar(255) NOT NULL,
             unidade_nome varchar(255) DEFAULT NULL,
+            servico varchar(255) DEFAULT NULL,
+            recurso varchar(255) DEFAULT NULL,
             data_agendamento date NOT NULL,
             hora_agendamento time NOT NULL,
             duracao_minutos int(11) DEFAULT 120,
@@ -1151,6 +1193,8 @@ class Positivo_CRM_Admin
             'aluno_escola_origem' => "ALTER TABLE {$table_name} ADD COLUMN aluno_escola_origem varchar(255) DEFAULT NULL AFTER aluno_ano_interesse",
             'unidade_id' => "ALTER TABLE {$table_name} ADD COLUMN unidade_id varchar(255) NOT NULL AFTER aluno_escola_origem",
             'unidade_nome' => "ALTER TABLE {$table_name} ADD COLUMN unidade_nome varchar(255) DEFAULT NULL AFTER unidade_id",
+            'servico' => "ALTER TABLE {$table_name} ADD COLUMN servico varchar(255) DEFAULT NULL AFTER unidade_nome",
+            'recurso' => "ALTER TABLE {$table_name} ADD COLUMN recurso varchar(255) DEFAULT NULL AFTER servico",
             'hora_agendamento' => "ALTER TABLE {$table_name} ADD COLUMN hora_agendamento time NOT NULL AFTER data_agendamento",
             'duracao_minutos' => "ALTER TABLE {$table_name} ADD COLUMN duracao_minutos int(11) DEFAULT 120 AFTER hora_agendamento",
             'status' => "ALTER TABLE {$table_name} ADD COLUMN status varchar(50) DEFAULT 'pendente' AFTER duracao_minutos",
@@ -2252,9 +2296,9 @@ class Positivo_CRM_Admin
         // Configurações
         $options = get_option('positivo_crm_options', []);
 
-        $service_id = $options['service_id_visita'] ?? '9afda331-8c4f-eb11-a812-000d3ac1453b';
+        $service_id = $agendamento->servico;
         $booking_status_id = $options['booking_status_id'] ?? '8b1707dc-f012-4979-a3cc-cc8317b942d5';
-        $resource_id = $options['resource_id_default'] ?? '473194a7-716c-eb11-a812-000d3ac1453b';
+        $resource_id = $agendamento->recurso;
         $msdyn_status = intval($options['msdyn_status'] ?? 690970000);
         $origem_positivo = intval($options['origem_positivo'] ?? 4);
 

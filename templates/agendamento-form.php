@@ -1099,6 +1099,8 @@ $html_body = '
         <input type="hidden" name="utm_campaign">
         <input type="hidden" name="utm_term">
         <input type="hidden" name="utm_content">
+        <input type="hidden" name="servico">
+        <input type="hidden" name="recurso">
 
         <!-- PASSO 1: DADOS DO RESPONSÁVEL -->
         <div class="step-view active-step" data-step="1">
@@ -1550,6 +1552,8 @@ echo <<<'JAVASCRIPT'
         return;
       }
       const series = unidade.series;
+      const servico = unidade.servico;
+      const recurso = unidade.recurso;
       // monta options
       let serieOptions = '<option value="">Selecione a série</option>';
       series.forEach(s => {
@@ -1560,7 +1564,11 @@ echo <<<'JAVASCRIPT'
         }
       });
       $('.serie-select').html(serieOptions).prop('disabled', false);
-      console.log('Séries carregadas:', series);
+      document.querySelector('input[name="servico"]').value = servico;
+      document.querySelector('input[name="recurso"]').value = recurso;
+      // console.log('Séries carregadas:', series);
+      // console.log('Servico carregada:', servico);
+      // console.log('Recurso carregada:', recurso);
     });
 
 
@@ -1939,10 +1947,27 @@ echo <<<'JAVASCRIPT'
               const cidade = extractCity(endereco);
               const cityKey = cidade || "Outra";
               let series = [];
-              // console.log(JSON.parse(unit.pos_mapeamentoseries));
-              if (unit.pos_mapeamentoseries) { try { const parsed = JSON.parse(unit.pos_mapeamentoseries); if (Array.isArray(parsed)) { series = parsed.map(s => ({ id: s.id, nome: s.nome })).filter(s => s.id && s.nome); } } catch (e) { console.error("Erro ao parsear séries da unidade:", nome, e); } }
+              let servico = null;
+              let recurso = null;
+              if (unit.pos_mapeamentoseries) {
+                try {
+                  const seriesObj = JSON.parse(unit.pos_mapeamentoseries)[nome]?.Series;
+                  const ag = JSON.parse(unit.pos_mapeamentoseries)[nome]?.Agendamento;
+                  servico = ag?.Servico || null;
+                  recurso = ag?.Recurso || null;
+
+                  if (seriesObj && typeof seriesObj === 'object') {
+                    series = Object.entries(seriesObj)
+                      .map(([nome, id]) => ({ id, nome }))
+                      .filter(s => s.id && s.nome);
+                  }
+
+                } catch (e) {
+                  console.error("Erro ao parsear séries da unidade:", nome, e);
+                }
+              }
               if (!unitsByCity[cityKey]) { unitsByCity[cityKey] = []; }
-              unitsByCity[cityKey].push({ id: id, name: nome, endereco: endereco, cidade: cidade, series: series });
+              unitsByCity[cityKey].push({ id: id, name: nome, endereco: endereco, cidade: cidade, series: series, servico: servico, recurso: recurso});
             });
             window.unidades = unitsByCity;
             const sortedCities = Object.keys(unitsByCity).sort(function(a, b) {
@@ -2381,6 +2406,11 @@ echo <<<'JAVASCRIPT'
     // 5️⃣ Controla disabled do HTML
     // ===============================
     function atualizarDisabledFormulario() {
+      document.querySelector('.top-selects')?.style.setProperty('display','block');
+      return null; 
+
+
+
 
       const wrapper = document.querySelector('.page-wrapper');
       if (!wrapper) return;
