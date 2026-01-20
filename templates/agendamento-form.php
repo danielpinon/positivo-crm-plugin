@@ -230,8 +230,7 @@ $css_content = '
 
   /* Barra "Nossos Colégios" (cidade / unidade) */
   .top-selects {
-    /* display: none; */
-    display: block;
+    display: none;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 24px;
@@ -2327,7 +2326,7 @@ echo <<<'JAVASCRIPT'
       console.log('🏫 Unidade capturada:', option.text);
       tentarPreencherFormulario();
     }
-    // atualizarDisabledFormulario();
+    atualizarDisabledFormulario();
   });
 
   // ===============================
@@ -2442,7 +2441,7 @@ echo <<<'JAVASCRIPT'
 
     }
     document.addEventListener('DOMContentLoaded', () => {
-      // atualizarDisabledFormulario();
+      atualizarDisabledFormulario();
     });
 
     function atualizarClasseVisual() {
