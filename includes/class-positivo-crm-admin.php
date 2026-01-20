@@ -100,11 +100,11 @@ class Positivo_CRM_Admin
         // CAPTURA DE UTMs
         // ============================
         $utms = [
-            'utm_source'   => sanitize_text_field($form['utm_source'] ?? $_COOKIE['utm_source'] ?? ''),
-            'utm_medium'   => sanitize_text_field($form['utm_medium'] ?? $_COOKIE['utm_medium'] ?? ''),
+            'utm_source' => sanitize_text_field($form['utm_source'] ?? $_COOKIE['utm_source'] ?? ''),
+            'utm_medium' => sanitize_text_field($form['utm_medium'] ?? $_COOKIE['utm_medium'] ?? ''),
             'utm_campaign' => sanitize_text_field($form['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? ''),
-            'utm_term'     => sanitize_text_field($form['utm_term'] ?? $_COOKIE['utm_term'] ?? ''),
-            'utm_content'  => sanitize_text_field($form['utm_content'] ?? $_COOKIE['utm_content'] ?? ''),
+            'utm_term' => sanitize_text_field($form['utm_term'] ?? $_COOKIE['utm_term'] ?? ''),
+            'utm_content' => sanitize_text_field($form['utm_content'] ?? $_COOKIE['utm_content'] ?? ''),
         ];
 
         /**
@@ -136,18 +136,11 @@ class Positivo_CRM_Admin
 
         // 🔹 Limpa { }
         $unidade_id = $unidade_id_raw;
-        $form['crm_unidadeinteresse'] =  trim(str_replace(['{', '}'], '', sanitize_text_field($unidade_id_raw))) ; // Atualiza no form
+        $form['crm_unidadeinteresse'] = trim(str_replace(['{', '}'], '', sanitize_text_field($unidade_id_raw))); // Atualiza no form
 
         // 🔹 Nome da unidade (tentativa 1: vindo do form)
-        $unidade_nome = '';
-
-        if (!empty($form['unidade_nome'])) {
-            $unidade_nome = sanitize_text_field($form['unidade_nome']);
-        }
-
-
         // 🔹 Fallback: buscar no CRM se não veio no form
-        if (empty($unidade_nome) && !empty($unidade_id)) {
+        if (!empty($unidade_id)) {
 
             try {
                 $api = new Positivo_CRM_API();
@@ -159,19 +152,20 @@ class Positivo_CRM_Admin
                 ) {
                     foreach ($response['result'] as $unidade) {
 
+
                         // Possíveis campos de ID no retorno
                         $crm_id_raw =
                             $unidade['cad_categoriaid'] ?? '';
+
 
                         if ($crm_id_raw === $unidade_id) {
 
                             // Possíveis campos de nome
                             $unidade_nome = sanitize_text_field(
                                 $unidade['cad_name']
-                                ?? $unidade['msdyn_name']
-                                ?? $unidade['name']
                                 ?? ''
                             );
+
 
                             break;
                         }
@@ -184,12 +178,15 @@ class Positivo_CRM_Admin
                     'exception' => $e->getMessage(),
                     'unidade_id' => $unidade_id
                 ]);
+
+                $unidade_nome = "";
             }
         }
+
         /**
          * Quantidade de tempo de cada unidade e dia da semana
          */
-         $dias_map = [
+        $dias_map = [
             'monday' => 'segunda',
             'tuesday' => 'terca',
             'wednesday' => 'quarta',
@@ -205,7 +202,7 @@ class Positivo_CRM_Admin
         global $wpdb;
         $table_horarios = $wpdb->prefix . 'positivo_unidade_horarios';
         $rows = $wpdb->get_results(
-        $wpdb->prepare(
+            $wpdb->prepare(
                 "SELECT hora_inicio, hora_fim, duracao_visita_minutos FROM {$table_horarios}
                 WHERE unidade = %s AND dia_semana = %s",
                 $unidade_id,
@@ -213,10 +210,8 @@ class Positivo_CRM_Admin
             )
         );
         $duracao = isset($rows[0]->duracao_visita_minutos)
-        ? (int) $rows[0]->duracao_visita_minutos
-        : 120; // fallback padrão
-
-           
+            ? (int) $rows[0]->duracao_visita_minutos
+            : 120; // fallback padrão
 
         // 🔹 Segurança final
         $unidade_nome = $unidade_nome ?: '';
@@ -226,6 +221,7 @@ class Positivo_CRM_Admin
             'unidade_id' => $unidade_id,
             'unidade_nome' => $unidade_nome
         ]);
+
 
 
         $dados = [
@@ -828,7 +824,7 @@ class Positivo_CRM_Admin
 
             if (!$rows) {
                 continue;
-                
+
             }
             // ---- BUSCA AGENDAMENTOS DO CRM ----
             $unitTemp = preg_replace('/[{}]/', '', $unit);
@@ -846,12 +842,14 @@ class Positivo_CRM_Admin
                     // if (empty($ag['scheduledstart']) || empty($ag['scheduledend'])) {
                     //     continue;
                     // }
-                    
-                    array_push( $intervalos_ocupados,
-                     [
-                        'start' => new DateTime($ag['scheduledstart']),
-                        'end'   => new DateTime($ag['scheduledend']),
-                    ]);
+
+                    array_push(
+                        $intervalos_ocupados,
+                        [
+                            'start' => new DateTime($ag['scheduledstart']),
+                            'end' => new DateTime($ag['scheduledend']),
+                        ]
+                    );
                 }
             }
             // ---- GERA SLOTS DISPONÍVEIS ----
@@ -861,7 +859,7 @@ class Positivo_CRM_Admin
                 $start = DateTime::createFromFormat(
                     'Y-m-d H:i:s',
                     $date_str . ' ' . $row->hora_inicio,
-        $tz
+                    $tz
                 );
                 $end = DateTime::createFromFormat(
                     'Y-m-d H:i:s',
@@ -906,7 +904,7 @@ class Positivo_CRM_Admin
                     'weekday' => $dia_semana,
                     'times' => array_values(array_unique($slots)),
                 ];
-            } 
+            }
         }
 
         if (empty($found)) {
@@ -951,7 +949,7 @@ class Positivo_CRM_Admin
         }
         $date = sanitize_text_field($_POST['date'] ?? '');
         $unit = sanitize_text_field($_POST['unit'] ?? '');
-        
+
         if (!$date) {
             wp_send_json_error(['message' => 'Data não fornecida.']);
         }
@@ -1023,7 +1021,7 @@ class Positivo_CRM_Admin
                 try {
                     $intervalos_ocupados[] = [
                         'start' => new DateTime($ag['scheduledstart']['#text']),
-                        'end'   => new DateTime($ag['scheduledend']['#text']),
+                        'end' => new DateTime($ag['scheduledend']['#text']),
                     ];
                 } catch (Exception $e) {
                     // opcional: log
@@ -2281,7 +2279,9 @@ class Positivo_CRM_Admin
 
         $table = $wpdb->prefix . 'positivo_agendamentos';
 
-        // Obtém agendamento
+        // ============================
+        // BUSCA DO AGENDAMENTO
+        // ============================
         $agendamento = $wpdb->get_row(
             $wpdb->prepare("SELECT * FROM {$table} WHERE id = %d", $agendamento_id)
         );
@@ -2293,7 +2293,9 @@ class Positivo_CRM_Admin
             return new WP_Error('agendamento_not_found', 'Agendamento não encontrado.');
         }
 
-        // Configurações
+        // ============================
+        // CONFIGURAÇÕES
+        // ============================
         $options = get_option('positivo_crm_options', []);
 
         $service_id = $agendamento->servico;
@@ -2302,134 +2304,66 @@ class Positivo_CRM_Admin
         $msdyn_status = intval($options['msdyn_status'] ?? 690970000);
         $origem_positivo = intval($options['origem_positivo'] ?? 4);
 
-        // Obtém os IDs de série diretamente dos campos do agendamento
-        // Os IDs já vêm do formulário com os valores corretos da API
-        $aluno_serie_id = $agendamento->aluno_serie_id ?? null;
-        $responsavel_serie_id = $agendamento->responsavel_serie_id ?? null;
+        // ============================
+        // DIVISÃO DE NOME DO RESPONSÁVEL
+        // ============================
+        $nome_completo = trim(preg_replace('/\s+/', ' ', $agendamento->responsavel_nome));
+        $nome_parts = explode(' ', $nome_completo, 2);
 
-        // Fallback: se não houver ID, tenta usar o mapeamento antigo
-        if (!$aluno_serie_id && !empty($agendamento->aluno_serie_interesse)) {
-            $serie_id_map = $this->get_serie_id_map();
-            $aluno_serie_id = $serie_id_map[$agendamento->aluno_serie_interesse] ?? null;
-            Positivo_CRM_Logger::warning('Usando mapeamento legado de série', [
-                'serie' => $agendamento->aluno_serie_interesse,
-                'id' => $aluno_serie_id
-            ]);
-        }
+        $responsavel_nome = $nome_parts[0] ?? '';
+        $responsavel_sobrenome = $nome_parts[1] ?? '';
 
-        if (!$responsavel_serie_id && !empty($agendamento->responsavel_serie_interesse)) {
-            $serie_id_map = $this->get_serie_id_map();
-            $responsavel_serie_id = $serie_id_map[$agendamento->responsavel_serie_interesse] ?? null;
-        }
+        // ============================
+        // SÉRIES (IDS VINDOS DO FORM)
+        // ============================
+        $aluno_serie_id = $agendamento->aluno_serie_id ?: 'edbfd569-5dbc-ea11-a812-000d3ac06348';
+        $responsavel_serie_id = $agendamento->responsavel_serie_id ?: 'edbfd569-5dbc-ea11-a812-000d3ac06348';
 
-        if (!$aluno_serie_id) {
-            Positivo_CRM_Logger::warning('Série do aluno não informada - usando ID padrão', [
-                'serie_interesse' => $agendamento->aluno_serie_interesse,
-                'serie_id' => $agendamento->aluno_serie_id
-            ]);
-            // Usa ID padrão como fallback
-            $aluno_serie_id = 'edbfd569-5dbc-ea11-a812-000d3ac06348';
-        }
-
-        if (!$responsavel_serie_id) {
-            Positivo_CRM_Logger::warning('Série do responsável não informada - usando ID padrão', [
-                'serie_interesse' => $agendamento->responsavel_serie_interesse,
-                'serie_id' => $agendamento->responsavel_serie_id
-            ]);
-            // Usa ID padrão como fallback
-            $responsavel_serie_id = 'edbfd569-5dbc-ea11-a812-000d3ac06348';
-        }
-
-        /*
-        |--------------------------------------------------------------------------
-        | CORREÇÃO DE TIMEZONE — Converte horários BR → UTC
-        |--------------------------------------------------------------------------
-        */
+        // ============================
+        // CORREÇÃO DE TIMEZONE (BR → UTC)
+        // ============================
         $tz_br = new DateTimeZone('America/Sao_Paulo');
         $tz_utc = new DateTimeZone('UTC');
 
-        // Horário inicial
         $hora = trim($agendamento->hora_agendamento);
-        // Se vier com segundos, não duplica ":00"
-        if (preg_match('/^\d{2}:\d{2}:\d{2}$/', $hora)) {
-            $data_hora_br = $agendamento->data_agendamento . ' ' . $hora;
-        }
-        // Se vier sem segundos (ex: 16:00), adiciona
-        else {
-            $data_hora_br = $agendamento->data_agendamento . ' ' . $hora . ':00';
-        }
+        $data_hora_br = $agendamento->data_agendamento . ' ' . (strlen($hora) === 5 ? $hora . ':00' : $hora);
+
         $dt_inicio = new DateTime($data_hora_br, $tz_br);
-
-
-        // Horário final
         $dt_fim = clone $dt_inicio;
         $dt_fim->modify("+" . intval($agendamento->duracao_minutos) . " minutes");
 
-        // Horário de chegada (-10 min)
         $dt_chegada = clone $dt_inicio;
         $dt_chegada->modify("-10 minutes");
 
-        // Converte tudo para UTC
         $dt_inicio->setTimezone($tz_utc);
         $dt_fim->setTimezone($tz_utc);
         $dt_chegada->setTimezone($tz_utc);
 
-        // Formatos aceitos pelo CRM (ISO 8601 com Z)
         $scheduledstart = $dt_inicio->format('Y-m-d\TH:i:s\Z');
         $scheduledend = $dt_fim->format('Y-m-d\TH:i:s\Z');
         $arrivaltime = $dt_chegada->format('Y-m-d\TH:i:s\Z');
 
         // ============================
-        // BLOCO DE ORIGEM / UTM (SEM BANCO)
+        // CAPTURA DE UTM (SEM BANCO)
         // ============================
-        $utm_source   = sanitize_text_field($_POST['utm_source']   ?? $_COOKIE['utm_source']   ?? '');
-        $utm_medium   = sanitize_text_field($_POST['utm_medium']   ?? $_COOKIE['utm_medium']   ?? '');
+        $utm_source = sanitize_text_field($_POST['utm_source'] ?? $_COOKIE['utm_source'] ?? '');
+        $utm_medium = sanitize_text_field($_POST['utm_medium'] ?? $_COOKIE['utm_medium'] ?? '');
         $utm_campaign = sanitize_text_field($_POST['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? '');
-        $utm_term     = sanitize_text_field($_POST['utm_term']     ?? $_COOKIE['utm_term']     ?? '');
-        $utm_content  = sanitize_text_field($_POST['utm_content']  ?? $_COOKIE['utm_content']  ?? '');
+        $utm_term = sanitize_text_field($_POST['utm_term'] ?? $_COOKIE['utm_term'] ?? '');
+        $utm_content = sanitize_text_field($_POST['utm_content'] ?? $_COOKIE['utm_content'] ?? '');
 
-        $utm_block = [];
-
-        if ($utm_source) {
-            $utm_block[] = "Origem: {$utm_source}";
-        }
-        if ($utm_medium) {
-            $utm_block[] = "Mídia: {$utm_medium}";
-        }
-        if ($utm_campaign) {
-            $utm_block[] = "Campanha: {$utm_campaign}";
-        }
-        if ($utm_term) {
-            $utm_block[] = "Termo: {$utm_term}";
-        }
-        if ($utm_content) {
-            $utm_block[] = "Conteúdo: {$utm_content}";
-        }
-
-        $utm_text = '';
-        if (!empty($utm_block)) {
-            $utm_text = "Origem da Conversão: " . implode(" | ", $utm_block);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Substituição de variáveis do template
-        |--------------------------------------------------------------------------
-        */
+        // ============================
+        // VARIÁVEIS DO TEMPLATE
+        // ============================
         $variables = [
-            '{{responsavel_nome}}' => $agendamento->responsavel_nome,
-            '{{responsavel_sobrenome}}' => $agendamento->responsavel_sobrenome,
+            '{{responsavel_nome}}' => $responsavel_nome,
+            '{{responsavel_sobrenome}}' => $responsavel_sobrenome,
             '{{responsavel_email}}' => $agendamento->responsavel_email,
             '{{responsavel_telefone}}' => $agendamento->responsavel_telefone,
-            '{{responsavel_serie_interesse}}' => $agendamento->responsavel_serie_interesse,
-            '{{responsavel_serie_id}}' => preg_replace('/^\{|\}$/', '', $responsavel_serie_id) ?: 'null',
-            '{{responsavel_como_conheceu}}' => intval($agendamento->responsavel_como_conheceu),
+            '{{responsavel_serie_id}}' => preg_replace('/^\{|\}$/', '', $responsavel_serie_id),
 
             '{{aluno_nome}}' => $agendamento->aluno_nome,
             '{{aluno_sobrenome}}' => $agendamento->aluno_sobrenome,
-            '{{aluno_serie_interesse}}' => $agendamento->aluno_serie_interesse,
-            '{{aluno_serie_id}}' => preg_replace('/^\{|\}$/', '', $aluno_serie_id),
             '{{aluno_ano_interesse}}' => intval($agendamento->aluno_ano_interesse),
             '{{aluno_escola_origem}}' => $agendamento->aluno_escola_origem ?: '',
 
@@ -2439,7 +2373,6 @@ class Positivo_CRM_Admin
             '{{scheduledstart}}' => $scheduledstart,
             '{{scheduledend}}' => $scheduledend,
             '{{estimatedarrivaltime}}' => $arrivaltime,
-
             '{{duracao_minutos}}' => intval($agendamento->duracao_minutos),
 
             '{{service_id}}' => $service_id,
@@ -2448,156 +2381,62 @@ class Positivo_CRM_Admin
             '{{msdyn_status}}' => $msdyn_status,
             '{{origem_positivo}}' => $origem_positivo,
 
-            '{{lead_id}}' => 'PLACEHOLDER_LEAD_ID',
+            // 🔥 NOVOS CAMPOS DE CAMPANHA
+            '{{utm_source}}' => $utm_source,
+            '{{utm_medium}}' => $utm_medium,
+            '{{utm_campaign}}' => $utm_campaign,
+            '{{utm_term}}' => $utm_term,
+            '{{utm_content}}' => $utm_content,
 
             '{{subject}}' => 'Visita - ' . $agendamento->unidade_nome,
-
-            '{{description}}' => sprintf(
-                'Agendamento realizado via site em %s. Responsável: %s %s. Aluno: %s %s. UTM: %s',
-                current_time('d/m/Y H:i'),
-                $agendamento->responsavel_nome,
-                $agendamento->responsavel_sobrenome,
-                $agendamento->aluno_nome,
-                $agendamento->aluno_sobrenome,
-                $utm_text
-            ),
-
-            '{{requisito_name}}' => sprintf(
-                'Visita - %s - %s',
-                $agendamento->unidade_nome,
-                date('d/m/Y', strtotime($agendamento->data_agendamento))
-            )
+            '{{description}}' => 'Agendamento criado via site.'
         ];
 
-        // Carrega template
-        $json_template = $options['fetch_xml_agendamento']
-            ?? file_get_contents(POSITIVO_CRM_PATH . 'templates/agendamento-json-template.json');
 
-        // Substitui marcadores
+        // ============================
+        // CARREGA TEMPLATE JSON
+        // ============================
+        $json_template = file_get_contents(
+            POSITIVO_CRM_PATH . 'templates/agendamento-json-template.json'
+        );
+
         $json_body = str_replace(array_keys($variables), array_values($variables), $json_template);
 
-        // Valida JSON
         $payload = json_decode($json_body, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
-            Positivo_CRM_Logger::error('Template JSON inválido', [
-                'erro' => json_last_error_msg(),
-                'json' => substr($json_body, 0, 2000)
-            ]);
-            return new WP_Error('invalid_json_template', json_last_error_msg());
+            return new WP_Error('invalid_json', json_last_error_msg());
         }
 
-        // Forçar tipo float nos campos exigidos pelo Dynamics
-        if (isset($payload['requisitoRecurso']['msdyn_effort'])) {
-            $payload['requisitoRecurso']['msdyn_effort'] = floatval($payload['requisitoRecurso']['msdyn_effort']);
-        }
-
-        if (isset($payload['reserva']['msdyn_effort'])) {
-            $payload['reserva']['msdyn_effort'] = floatval($payload['reserva']['msdyn_effort']);
-        }
-
-
-        /*
-        |--------------------------------------------------------------------------
-        | Token de acesso
-        |--------------------------------------------------------------------------
-        */
+        // ============================
+        // TOKEN E ENVIO
+        // ============================
         $api = new Positivo_CRM_API();
         $token = $api->get_access_token();
 
         if (is_wp_error($token)) {
-            $wpdb->update($table, [
-                'status' => 'erro',
-                'erro_envio' => $token->get_error_message()
-            ], ['id' => $agendamento_id]);
-
             return $token;
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Envio ao CRM
-        |--------------------------------------------------------------------------
-        */
         $endpoint = 'https://colegiopositivoapi.crmeducacional.com/api/IntegracaoClientes/PositivoEnviarVisita';
-
-        // DEBUG: logar payload antes do envio
-        Positivo_CRM_Logger::info('DEBUG_PAYLOAD_ENVIADA', [
-            'endpoint' => $endpoint,
-            'payload_json' => json_encode($payload, JSON_PRETTY_PRINT),
-            'payload_array' => $payload
-        ]);
-
-        // Corrigir tipos numéricos exigidos pelo CRM
-        $payload['requisitoRecurso']['msdyn_effort'] = floatval($payload['requisitoRecurso']['msdyn_effort']);
-        $payload['reserva']['msdyn_effort'] = floatval($payload['reserva']['msdyn_effort']);
-
-        // Garantir que não converta 1.0 para 1
-        $body_json = json_encode($payload, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION);
-
-        // LOG de debug final
-        Positivo_CRM_Logger::info('DEBUG_PAYLOAD_FINAL_FORCADA', [
-            'payload_json' => $body_json
-        ]);
 
         $response = wp_remote_post($endpoint, [
             'headers' => [
                 'Content-Type' => 'application/json',
                 'Authorization' => 'Bearer ' . $token
             ],
-            'body' => $body_json,
+            'body' => json_encode($payload, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION),
             'timeout' => 60,
-            "sslverify" => false,
+            'sslverify' => false
         ]);
 
         if (is_wp_error($response)) {
-            $wpdb->update($table, [
-                'status' => 'erro',
-                'erro_envio' => $response->get_error_message()
-            ], ['id' => $agendamento_id]);
-
             return $response;
         }
 
-        $status = wp_remote_retrieve_response_code($response);
-        $body = wp_remote_retrieve_body($response);
-
-        if ($status !== 200 && $status !== 201) {
-            $erro = "Erro HTTP {$status}: {$body}";
-
-            $wpdb->update($table, [
-                'status' => 'erro',
-                'erro_envio' => $erro
-            ], ['id' => $agendamento_id]);
-
-            return new WP_Error('api_error', $erro);
-        }
-
-        $resultado = json_decode($body, true);
-        $lead_id = $resultado['leadId'] ?? null;
-        $atividade_id = $resultado['atividadeId'] ?? null;
-
-        /*
-        |--------------------------------------------------------------------------
-        | Atualiza registro
-        |--------------------------------------------------------------------------
-        */
-        $wpdb->update($table, [
-            'status' => 'enviado',
-            'enviado_crm' => 1,
-            'data_envio_crm' => current_time('mysql'),
-            'lead_id' => $lead_id,
-            'atividade_id' => $atividade_id,
-            'erro_envio' => null
-        ], ['id' => $agendamento_id]);
-
-        return [
-            'success' => true,
-            'lead_id' => $lead_id,
-            'atividade_id' => $atividade_id,
-            'response' => $resultado
-        ];
+        return json_decode(wp_remote_retrieve_body($response), true);
     }
+
 
 
     /**

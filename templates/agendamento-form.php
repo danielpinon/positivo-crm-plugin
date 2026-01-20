@@ -230,7 +230,8 @@ $css_content = '
 
   /* Barra "Nossos Colégios" (cidade / unidade) */
   .top-selects {
-    display: none;
+    /* display: none; */
+    display: block;
     flex-wrap: wrap;
     gap: 16px;
     margin-bottom: 24px;
@@ -450,6 +451,7 @@ $css_content = '
       background: rgba(0,0,0,0.55);
       z-index: 999999;
       justify-content: center;
+      align-items: center;
   }
 
   .modal-sucesso .modal-content {
@@ -461,6 +463,8 @@ $css_content = '
       text-align: center;
       font-family: Inter, sans-serif;
       overflow: auto;
+      height: 95%;
+      place-content: center;
   }
 
   .modal-sucesso .icon-success {
@@ -2323,7 +2327,7 @@ echo <<<'JAVASCRIPT'
       console.log('🏫 Unidade capturada:', option.text);
       tentarPreencherFormulario();
     }
-    atualizarDisabledFormulario();
+    // atualizarDisabledFormulario();
   });
 
   // ===============================
@@ -2406,8 +2410,8 @@ echo <<<'JAVASCRIPT'
     // 5️⃣ Controla disabled do HTML
     // ===============================
     function atualizarDisabledFormulario() {
-      document.querySelector('.top-selects')?.style.setProperty('display','block');
-      return null; 
+      //document.querySelector('.top-selects')?.style.setProperty('display','block');
+      //return null; 
 
 
 
@@ -2438,7 +2442,7 @@ echo <<<'JAVASCRIPT'
 
     }
     document.addEventListener('DOMContentLoaded', () => {
-      atualizarDisabledFormulario();
+      // atualizarDisabledFormulario();
     });
 
     function atualizarClasseVisual() {
