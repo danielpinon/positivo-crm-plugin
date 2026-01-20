@@ -141,7 +141,6 @@ class Positivo_CRM_Admin
         // 🔹 Nome da unidade (tentativa 1: vindo do form)
         // 🔹 Fallback: buscar no CRM se não veio no form
         if (!empty($unidade_id)) {
-
             try {
                 $api = new Positivo_CRM_API();
                 $response = $api->get_unidades();
@@ -151,22 +150,15 @@ class Positivo_CRM_Admin
                     && is_array($response['result'])
                 ) {
                     foreach ($response['result'] as $unidade) {
-
-
                         // Possíveis campos de ID no retorno
                         $crm_id_raw =
                             $unidade['cad_categoriaid'] ?? '';
-
-
                         if ($crm_id_raw === $unidade_id) {
-
                             // Possíveis campos de nome
                             $unidade_nome = sanitize_text_field(
                                 $unidade['cad_name']
                                 ?? ''
                             );
-
-
                             break;
                         }
                     }
@@ -181,6 +173,64 @@ class Positivo_CRM_Admin
 
                 $unidade_nome = "";
             }
+        }
+
+        // ============================
+        // RESOLVER SÉRIE (ID + NOME) DE TODOS OS FILHOS
+        // ============================
+
+        $series_resolvidas = [];
+
+        $map_series_raw = $unidade['pos_mapeamentoseries'] ?? '';
+        $map_series = json_decode($map_series_raw, true);
+
+        $series_map = [];
+
+        if (
+            is_array($map_series)
+            && isset($map_series[$unidade['cad_name']]['Series'])
+        ) {
+            $series_map = $map_series[$unidade['cad_name']]['Series'];
+        }
+
+        // Percorre todos os filhos vindos do form
+        foreach (($form['aluno_serie_id'] ?? []) as $index => $serie_id_raw) {
+
+            $serie_id = trim(str_replace(['{', '}'], '', $serie_id_raw));
+            $serie_nome = '';
+
+            // Tenta resolver o nome pelo mapa
+            foreach ($series_map as $nome => $id) {
+                if (strcasecmp($id, $serie_id) === 0) {
+                    $serie_nome = $nome;
+                    break;
+                }
+            }
+
+            if (!$serie_nome) {
+                Positivo_CRM_Logger::warning('Série não encontrada para o aluno', [
+                    'aluno_index' => $index,
+                    'serie_id' => $serie_id,
+                    'unidade' => $unidade['cad_name'] ?? ''
+                ]);
+            }
+
+            $series_resolvidas[] = [
+                'aluno_index' => $index,
+                'serie_id' => $serie_id,
+                'serie_nome' => $serie_nome
+            ];
+        }
+        // ============================
+        // DEFINIR SÉRIE DO ALUNO (RESOLVIDA)
+        // ============================
+
+        $aluno_serie_id_final = '';
+        $aluno_serie_nome_final = '';
+
+        if (!empty($series_resolvidas[0])) {
+            $aluno_serie_id_final   = $series_resolvidas[0]['serie_id'] ?? '';
+            $aluno_serie_nome_final = $series_resolvidas[0]['serie_nome'] ?? '';
         }
 
         /**
@@ -236,8 +286,8 @@ class Positivo_CRM_Admin
             'aluno_nome' => sanitize_text_field($form['aluno_nome'][0] ?? ''),
             'aluno_escola_origem' => sanitize_text_field($form['aluno_escola'][0] ?? ''),
             'aluno_ano_interesse' => intval($form['aluno_ano'][0] ?? 0),
-            'aluno_serie_id' => sanitize_text_field($form['aluno_serie_id'][0] ?? ''),
-            'aluno_serie_interesse' => sanitize_text_field($form['aluno_serie'][0] ?? ''),
+            'aluno_serie_id' => $aluno_serie_id_final,
+            'aluno_serie_interesse' => $aluno_serie_nome_final,
 
             // Unidade
             'unidade_id' => sanitize_text_field($form['crm_unidadeinteresse'] ?? ''),
