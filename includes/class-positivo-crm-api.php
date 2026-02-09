@@ -148,7 +148,7 @@ class Positivo_CRM_API
 				'Accept' => 'application/json',
 			),
 			'body' => $body,
-            "sslverify" => false,
+			"sslverify" => false,
 		));
 
 		return $this->handle_token_response($response);
@@ -188,7 +188,7 @@ class Positivo_CRM_API
 				'Accept' => 'application/json',
 			),
 			'body' => $body,
-            "sslverify" => false,
+			"sslverify" => false,
 		));
 
 		return $this->handle_token_response($response);
@@ -339,7 +339,7 @@ class Positivo_CRM_API
 				),
 				'body' => $fetch_xml,
 				'timeout' => 30,
-            	"sslverify" => false,
+				"sslverify" => false,
 			);
 			$response = wp_remote_request($url, $args);
 		}
@@ -423,61 +423,74 @@ class Positivo_CRM_API
 	}
 
 	/**
-	 * Requisição: Busca de Responsável.
+	 * Requisição: Busca de Responsável por e-mail.
 	 *
-	 * @param string $fullname Nome completo do responsável.
+	 * @param string $email E-mail do responsável.
 	 * @return array|WP_Error O resultado da busca ou WP_Error.
 	 */
-	public function search_responsavel($fullname)
+	public function search_responsavel($email)
 	{
-		// Recupera o FetchXML salvo ou utiliza o padrão. Substitui o placeholder pelo nome.
+		// Recupera o FetchXML salvo ou utiliza o padrão
 		$default_template = '<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
-			<entity name="lead">
-				<attribute name="fullname" />
-				<attribute name="leadid" />
-				<attribute name="createdon" />
-				<attribute name="pos_origem_positivo" />
-				<attribute name="col_numerofilhos" />
-				<attribute name="col_comoconheceu" />
-				<attribute name="mobilephone" />
-				<attribute name="emailaddress1" />
-				<attribute name="col_visitasrealizadas" />
-				<attribute name="crmeduc_whatsappsrealizados" />
-				<attribute name="crmeduc_telefonemasrealizados" />
-				<attribute name="crmeduc_emailsenviados" />
-				<order attribute="createdon" descending="true" />
-				<filter type="and">
+		<entity name="lead">
+			<attribute name="fullname" />
+			<attribute name="leadid" />
+			<attribute name="createdon" />
+			<attribute name="pos_origem_positivo" />
+			<attribute name="col_numerofilhos" />
+			<attribute name="col_comoconheceu" />
+			<attribute name="mobilephone" />
+			<attribute name="emailaddress1" />
+			<attribute name="col_visitasrealizadas" />
+			<attribute name="crmeduc_whatsappsrealizados" />
+			<attribute name="crmeduc_telefonemasrealizados" />
+			<attribute name="crmeduc_emailsenviados" />
+			<order attribute="createdon" descending="true" />
+			<filter type="and">
 				<condition attribute="cad_tipointeressado" operator="eq" value="0" />
-				<filter type="and">
-					<condition attribute="fullname" operator="not-like" value="%%Teste%%" />
-					<condition attribute="fullname" operator="not-like" value="%%Compromisso%%" />
-				</filter>
-				<condition attribute="fullname" operator="like" value="%%%s%%" />
-				</filter>
-			</entity>
-			</fetch>';
-		$options = get_option('positivo_crm_options', array());
-		$fetch_xml = isset($options['fetch_xml_responsavel']) && !empty($options['fetch_xml_responsavel']) ? $options['fetch_xml_responsavel'] : $default_template;
+				<condition attribute="emailaddress1" operator="eq" value="%s" />
+			</filter>
+		</entity>
+	</fetch>';
 
-		// Define template_raw com o conteúdo atual de $fetch_xml para evitar variáveis indefinidas.
+		$options = get_option('positivo_crm_options', array());
+		$fetch_xml = !empty($options['fetch_xml_responsavel'])
+			? $options['fetch_xml_responsavel']
+			: $default_template;
+
 		$template_raw = $fetch_xml;
 
-		// Sanitiza o termo de busca usando sanitize_text_field ao invés de esc_attr
-		$search = sanitize_text_field($fullname);
-		// Substitui o placeholder %s ou marcadores personalizados pelo nome do responsável
+		// Sanitização correta para e-mail
+		$search = sanitize_email($email);
+
+		if (empty($search) || !is_email($search)) {
+			return new WP_Error(
+				'email_invalido',
+				'E-mail do responsável é inválido.'
+			);
+		}
+
+		// Substituição segura do placeholder
 		if (strpos($template_raw, '%s') !== false) {
 			$fetch_xml = sprintf($template_raw, $search);
 		} else {
-			// Tenta substituir marcadores {fullname} ou {nome} se presentes
-			$fetch_xml = str_replace(array('{fullname}', '{nome}'), $search, $template_raw);
+			// Permite templates customizados
+			$fetch_xml = str_replace(
+				array('{email}', '{emailaddress1}'),
+				$search,
+				$template_raw
+			);
 		}
 
-		// Determina o método de requisição para a busca de responsável
-		$options = get_option('positivo_crm_options', array());
-		$method = isset($options['method_responsavel']) ? strtoupper($options['method_responsavel']) : 'GET';
+		// Método HTTP configurável
+		$method = isset($options['method_responsavel'])
+			? strtoupper($options['method_responsavel'])
+			: 'GET';
+
 		if (!in_array($method, array('GET', 'POST'), true)) {
 			$method = 'GET';
 		}
+
 		return $this->protected_request($method, $fetch_xml);
 	}
 
@@ -770,8 +783,8 @@ class Positivo_CRM_API
 		if (is_wp_error($response)) {
 			wp_send_json_error([
 				'message' => $response->get_error_message(),
-				'code'    => $response->get_error_code(),
-				'data'    => $response->get_error_data(),
+				'code' => $response->get_error_code(),
+				'data' => $response->get_error_data(),
 			]);
 		}
 
@@ -790,11 +803,11 @@ class Positivo_CRM_API
 
 				// Ordem dos níveis
 				$levels = [
-					'berçário'        => 1,
-					'infantil'        => 2,
-					'anos iniciais'   => 3,
-					'anos finais'     => 4,
-					'ensino médio'    => 5,
+					'berçário' => 1,
+					'infantil' => 2,
+					'anos iniciais' => 3,
+					'anos finais' => 4,
+					'ensino médio' => 5,
 				];
 
 				$level = 99;

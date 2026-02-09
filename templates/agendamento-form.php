@@ -1580,7 +1580,7 @@ echo <<<'JAVASCRIPT'
     $form.on("click", ".search-responsavel", function (e) {
       e.preventDefault();
 
-      const nome = $("#responsavel_nome").val().trim();
+      const nome = $("#responsavel_email").val().trim();
       if (!nome) {
           alert("Informe o nome do responsável.");
           return;
@@ -2410,7 +2410,7 @@ echo <<<'JAVASCRIPT'
     // ===============================
     function atualizarDisabledFormulario() {
       //document.querySelector('.top-selects')?.style.setProperty('display','block');
-      //return null; 
+      //  return null; 
 
 
 

@@ -1,0 +1,168 @@
+{
+  "responsavel": {
+    "cad_tipointeressado": {
+      "option": 0
+    },
+    "firstname": "{{responsavel_nome}}",
+    "lastname": "{{responsavel_sobrenome}}",
+    "emailaddress1": "{{responsavel_email}}",
+    "crm_unidadeinteresse": {
+      "id": "{{unidade_id}}"
+    },
+    "crm_servicoeducacionalinteresse": {
+      "id": "{{responsavel_serie_id}}"
+    },
+    "col_comoconheceu": {
+      "option": 191030009
+    },
+    "pos_origem_positivo": {
+      "option": 3
+    },
+    "mobilephone": "{{responsavel_telefone}}",
+    "cad_campaignsource": "{{utm_source}}",
+    "cad_campaigncontent": "{{utm_content}}",
+    "cad_campaignmedium": "{{utm_medium}}",
+    "cad_campaignname": "{{utm_campaign}}",
+    "cad_campaignterm": "{{utm_term}}"
+  },
+  "dependentes": [
+    {
+      "cad_tipointeressado": {
+        "option": 1
+      },
+      "firstname": "{{aluno_nome}}",
+      "lastname": "{{aluno_sobrenome}}",
+      "crm_unidadeinteresse": {
+        "id": "{{unidade_id}}"
+      },
+      "crm_servicoeducacionalinteresse": {
+        "id": "{{responsavel_serie_id}}"
+      },
+      "col_anointeresse": {{aluno_ano_interesse}},
+      "crmeduc_escoladeorigem": "{{aluno_escola_origem}}"
+    }
+  ],
+  "atividadeServico": {
+    "serviceid": {
+      "id": "{{service_id}}"
+    },
+    "pos_unidadecolegiopositivo": {
+      "id": "{{unidade_id}}"
+    },
+    "subject": "{{subject}}",
+    "scheduledstart": "{{scheduledstart}}",
+    "scheduledend": "{{scheduledend}}",
+    "description": "{{description}}"
+  },
+  "requisitoRecurso": {
+    "msdyn_name": "{{subject}}",
+    "msdyn_fromdate": "{{scheduledstart}}",
+    "msdyn_todate": "{{scheduledend}}",
+    "msdyn_duration": {{duracao_minutos}},
+    "msdyn_effort": 1.0,
+    "msdyn_status": {
+      "option": 690970000
+    }
+  },
+  "reserva": {
+    "resource": {
+      "id": "{{resource_id}}"
+    },
+    "bookingstatus": {
+      "id": "8b1707dc-f012-4979-a3cc-cc8317b942d5"
+    },
+    "msdyn_estimatedarrivaltime": "{{estimatedarrivaltime}}",
+    "starttime": "{{scheduledstart}}",
+    "endtime": "{{scheduledend}}",
+    "duration": {{duracao_minutos}},
+    "msdyn_effort": 1.0
+  }
+}
+
+
+<fetch version="1.0" mapping="logical" returntotalrecordcount="true" page="1" count="25" no-lock="false">
+    <entity name="cad_servicoeducacional">
+        <attribute name="statecode" />
+        <attribute name="cad_servicoeducacionalid" />
+        <attribute name="cad_name" />
+        <attribute name="createdon" />
+        <filter type="and">
+            <condition attribute="statecode" operator="eq" value="0" />
+        </filter>
+        <order attribute="cad_name" descending="false" />
+    </entity>
+</fetch>
+
+
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
+  <entity name="lead">
+    <attribute name="fullname" />
+    <attribute name="leadid" />
+    <attribute name="createdon" />
+    <attribute name="cad_responsavel" />
+    <attribute name="col_anointeresse" />
+    <attribute name="crm_unidadeinteresse" />
+    <attribute name="crm_servicoeducacionalinteresse" />
+    <attribute name="col_turnointeresse" />
+    <attribute name="col_funilconversao" />
+    <attribute name="col_statusdareuniao" />
+    <attribute name="col_datadoagendamento" />
+    <order attribute="createdon" descending="true" />
+    <filter type="and">
+      <condition attribute="cad_tipointeressado" operator="eq" value="1" />
+      <condition attribute="cad_responsavel" operator="eq" uitype="lead" value="{%s}" />
+    </filter>
+    <link-entity name="lead" from="leadid" to="cad_responsavel" visible="false" link-type="outer" alias="a_952d28142ca440d8b2f654054ba0d2b1">
+      <attribute name="mobilephone" />
+      <attribute name="pos_origem_positivo" />
+      <attribute name="col_visitasrealizadas" />
+    </link-entity>
+    <link-entity name="cad_servicoeducacional" from="cad_servicoeducacionalid" to="crm_servicoeducacionalinteresse" visible="false" link-type="outer" alias="a_f9d768aae4e34d27a9a95edeb6498c43">
+      <attribute name="col_segmento" />
+    </link-entity>
+  </entity>
+</fetch>
+
+
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
+  <entity name="lead">
+    <attribute name="fullname" />
+    <attribute name="leadid" />
+    <attribute name="createdon" />
+    <attribute name="pos_origem_positivo" />
+    <attribute name="col_numerofilhos" />
+    <attribute name="col_comoconheceu" />
+    <attribute name="mobilephone" />
+    <attribute name="emailaddress1" />
+    <attribute name="col_visitasrealizadas" />
+    <attribute name="crmeduc_whatsappsrealizados" />
+    <attribute name="crmeduc_telefonemasrealizados" />
+    <attribute name="crmeduc_emailsenviados" />
+    <order attribute="createdon" descending="true" />
+    <filter type="and">
+      <condition attribute="cad_tipointeressado" operator="eq" value="0" />
+      <filter type="and">
+        <condition attribute="fullname" operator="not-like" value="%%Teste%%" />
+        <condition attribute="fullname" operator="not-like" value="%%Compromisso%%" />
+      </filter>
+      <condition attribute="fullname" operator="like" value="%%%s%%" />
+    </filter>
+  </entity>
+</fetch>
+
+
+<fetch version="1.0" output-format="xml-platform" mapping="logical" distinct="false">
+  <entity name="cad_categoria">
+    <attribute name="cad_name" />
+    <attribute name="pos_endereco_unidade" />
+    <attribute name="crmeduc_supervisor" />
+    <attribute name="cad_categoriaid" />
+    <attribute name="col_telefonedaunidade" />
+    <attribute name="crmeduc_emaildaunidade" />
+    <attribute name="pos_mapeamentoseries" />
+    <order attribute="cad_name" descending="false" />
+    <filter type="and">
+      <condition attribute="statecode" operator="eq" value="0" />
+    </filter>
+  </entity>
+</fetch>
