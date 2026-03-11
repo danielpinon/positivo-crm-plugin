@@ -118,6 +118,7 @@ class Positivo_CRM_Admin
             'form' => $form
         ]);
 
+
         // Se quiser testar:
         // wp_send_json_success(['debug' => $form]);
 
@@ -175,6 +176,7 @@ class Positivo_CRM_Admin
             }
         }
 
+
         // ============================
         // RESOLVER SÉRIE (ID + NOME) DE TODOS OS FILHOS
         // ============================
@@ -229,9 +231,14 @@ class Positivo_CRM_Admin
         $aluno_serie_nome_final = '';
 
         if (!empty($series_resolvidas[0])) {
-            $aluno_serie_id_final   = $series_resolvidas[0]['serie_id'] ?? '';
-            $aluno_serie_nome_final = $series_resolvidas[0]['serie_nome'] ?? '';
+            $aluno_serie_id_final = [];
+            $aluno_serie_nome_final = [];
+            foreach ($series_resolvidas as $key => $serie_resolvida) {
+                array_push($aluno_serie_id_final, $serie_resolvida['serie_id']);
+                array_push($aluno_serie_nome_final, $serie_resolvida['serie_nome']);
+            }
         }
+
 
         /**
          * Quantidade de tempo de cada unidade e dia da semana
@@ -272,7 +279,17 @@ class Positivo_CRM_Admin
             'unidade_nome' => $unidade_nome
         ]);
 
-
+        $alunos = [];
+        $countAlunos = count($form['aluno_nome'] ?? []);
+        for ($i = 0; $i < $countAlunos; $i++) {
+            $alunos[] = [
+                'nome' => sanitize_text_field($form['aluno_nome'][$i] ?? ''),
+                'escola_origem' => sanitize_text_field($form['aluno_escola'][$i] ?? ''),
+                'ano_interesse' => intval($form['aluno_ano'][$i] ?? 0),
+                'serie_id' => $aluno_serie_id_final[$i] ?? '',
+                'serie_interesse' => $aluno_serie_nome_final[$i] ?? '',
+            ];
+        }
 
         $dados = [
             // Responsável
@@ -307,8 +324,11 @@ class Positivo_CRM_Admin
             'enviado_crm' => 0,
         ];
 
+        $temp = $dados;
+        $temp['alunos'] = $alunos;
+
         Positivo_CRM_Logger::info("DADOS PARA INSERIR", [
-            'dados' => $dados
+            'dados' => $temp
         ]);
 
         // ============================================================
@@ -332,7 +352,11 @@ class Positivo_CRM_Admin
         // ============================================================
         // 5) ENVIAR PARA O CRM
         // ============================================================
-        $crm = $this->enviar_agendamento_para_crm($agendamento_id);
+        // Prepara Alunos
+        $dados['alunos'] = $alunos;
+        $crm = $this->enviar_agendamento_para_crm_json($dados);
+
+        // $crm = $this->enviar_agendamento_para_crm($agendamento_id);
 
         if (is_wp_error($crm)) {
             Positivo_CRM_Logger::error("Erro CRM", [
@@ -2314,11 +2338,176 @@ class Positivo_CRM_Admin
 
 
     /**
-     * Função para enviar agendamento para a API do CRM
-     * 
-     * @param int $agendamento_id ID do agendamento no banco de dados
-     * @return array|WP_Error Resultado do envio ou erro
+     * Summary of enviar_agendamento_para_crm_json
+     * @param mixed $data
      */
+    private function enviar_agendamento_para_crm_json($data)
+    {
+
+        Positivo_CRM_Logger::info('Iniciando envio para CRM', [
+            'data' => $data
+        ]);
+
+        $options = get_option('positivo_crm_options', []);
+
+        $service_id = $data['servico'];
+        $booking_status_id = $options['booking_status_id'] ?? '8b1707dc-f012-4979-a3cc-cc8317b942d5';
+        $resource_id = $data['recurso'];
+        $msdyn_status = intval($options['msdyn_status'] ?? 690970000);
+
+        // ============================
+        // RESPONSÁVEL
+        // ============================
+
+        $nome_completo = trim(preg_replace('/\s+/', ' ', $data['responsavel_nome']));
+        $nome_parts = explode(' ', $nome_completo, 2);
+
+        $responsavel_nome = $nome_parts[0] ?? '';
+        $responsavel_sobrenome = $nome_parts[1] ?? '';
+
+        // ============================
+        // TIMEZONE
+        // ============================
+
+        $tz_br = new DateTimeZone('America/Sao_Paulo');
+        $tz_utc = new DateTimeZone('UTC');
+
+        $hora = trim($data['hora_agendamento']);
+        $data_hora_br = $data['data_agendamento'] . ' ' . (strlen($hora) === 5 ? $hora . ':00' : $hora);
+
+        $dt_inicio = new DateTime($data_hora_br, $tz_br);
+
+        $dt_fim = clone $dt_inicio;
+        $dt_fim->modify("+" . intval($data['duracao_minutos']) . " minutes");
+
+        $dt_chegada = clone $dt_inicio;
+        $dt_chegada->modify("-10 minutes");
+
+        $dt_inicio->setTimezone($tz_utc);
+        $dt_fim->setTimezone($tz_utc);
+        $dt_chegada->setTimezone($tz_utc);
+
+        $scheduledstart = $dt_inicio->format('Y-m-d\TH:i:s\Z');
+        $scheduledend = $dt_fim->format('Y-m-d\TH:i:s\Z');
+        $arrivaltime = $dt_chegada->format('Y-m-d\TH:i:s\Z');
+
+        // ============================
+        // UTM
+        // ============================
+
+        $utm_source = sanitize_text_field($_POST['utm_source'] ?? $_COOKIE['utm_source'] ?? '');
+        $utm_medium = sanitize_text_field($_POST['utm_medium'] ?? $_COOKIE['utm_medium'] ?? '');
+        $utm_campaign = sanitize_text_field($_POST['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? '');
+        $utm_term = sanitize_text_field($_POST['utm_term'] ?? $_COOKIE['utm_term'] ?? '');
+        $utm_content = sanitize_text_field($_POST['utm_content'] ?? $_COOKIE['utm_content'] ?? '');
+
+        // ============================
+        // DEPENDENTES
+        // ============================
+
+        $dependentes = [];
+
+        foreach ($data['alunos'] as $key => $aluno) {
+
+            $nome_completo = trim(preg_replace('/\s+/', ' ', $aluno['nome']));
+            $nome_parts = explode(' ', $nome_completo, 2);
+
+            $aluno_nome = $nome_parts[0] ?? '';
+            $aluno_sobrenome = $nome_parts[1] ?? '';
+
+            array_push($dependentes, [
+                "cad_tipointeressado" => [
+                    "option" => 1
+                ],
+                "firstname" => $aluno_nome,
+                "lastname" => $aluno_sobrenome,
+                "crm_unidadeinteresse" => [
+                    "id" => $data['unidade_id']
+                ],
+                "crm_servicoeducacionalinteresse" => [
+                    "id" => $aluno['serie_id']
+                ],
+                "col_anointeresse" => intval($aluno['ano_interesse']),
+                "crmeduc_escoladeorigem" => $aluno['escola_origem']
+            ]);
+        }
+
+        // ============================
+        // TEMPLATE
+        // ============================
+
+        $json_template = file_get_contents(
+            POSITIVO_CRM_PATH . 'templates/agendamento-json-template.json'
+        );
+
+        $variables = [
+
+            '{{responsavel_nome}}' => $responsavel_nome,
+            '{{responsavel_sobrenome}}' => $responsavel_sobrenome,
+            '{{responsavel_email}}' => $data['responsavel_email'],
+            '{{responsavel_telefone}}' => $data['responsavel_telefone'],
+
+            '{{unidade_id}}' => $data['unidade_id'],
+
+            '{{scheduledstart}}' => $scheduledstart,
+            '{{scheduledend}}' => $scheduledend,
+            '{{estimatedarrivaltime}}' => $arrivaltime,
+            '{{duracao_minutos}}' => intval($data['duracao_minutos']),
+
+            '{{service_id}}' => $service_id,
+            '{{resource_id}}' => $resource_id,
+
+            '{{utm_source}}' => $utm_source,
+            '{{utm_medium}}' => $utm_medium,
+            '{{utm_campaign}}' => $utm_campaign,
+            '{{utm_term}}' => $utm_term,
+            '{{utm_content}}' => $utm_content,
+
+            '{{subject}}' => 'Visita - ' . $data['unidade_nome'],
+            '{{description}}' => 'Agendamento criado via site.',
+
+            '{{dependentes}}' => json_encode($dependentes, JSON_UNESCAPED_UNICODE)
+        ];
+
+        $json_body = str_replace(
+            array_keys($variables),
+            array_values($variables),
+            $json_template
+        );
+        
+        $payload = json_decode($json_body, true);
+
+        // ============================
+        // ENVIO
+        // ============================
+
+        $api = new Positivo_CRM_API();
+        $token = $api->get_access_token();
+
+        if (is_wp_error($token)) {
+            return $token;
+        }
+
+        $endpoint = 'https://colegiopositivoapi.crmeducacional.com/api/IntegracaoClientes/PositivoEnviarVisita';
+
+        $response = wp_remote_post($endpoint, [
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'Authorization' => 'Bearer ' . $token
+            ],
+            'body' => json_encode($payload, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION),
+            'timeout' => 60,
+            'sslverify' => false
+        ]);
+
+
+        if (is_wp_error($response)) {
+            return $response;
+        }
+
+        return json_decode(wp_remote_retrieve_body($response), true);
+    }
+
     private function enviar_agendamento_para_crm($agendamento_id)
     {
         global $wpdb;

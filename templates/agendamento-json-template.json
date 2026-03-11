@@ -22,23 +22,9 @@
     "cad_campaignname": "{{utm_campaign}}",
     "cad_campaignterm": "{{utm_term}}"
   },
-  "dependentes": [
-    {
-      "cad_tipointeressado": {
-        "option": 1
-      },
-      "firstname": "{{aluno_nome}}",
-      "lastname": "{{aluno_sobrenome}}",
-      "crm_unidadeinteresse": {
-        "id": "{{unidade_id}}"
-      },
-      "crm_servicoeducacionalinteresse": {
-        "id": "{{responsavel_serie_id}}"
-      },
-      "col_anointeresse": {{aluno_ano_interesse}},
-      "crmeduc_escoladeorigem": "{{aluno_escola_origem}}"
-    }
-  ],
+
+  "dependentes": {{dependentes}},
+
   "atividadeServico": {
     "serviceid": {
       "id": "{{service_id}}"
@@ -51,6 +37,7 @@
     "scheduledend": "{{scheduledend}}",
     "description": "{{description}}"
   },
+
   "requisitoRecurso": {
     "msdyn_name": "{{subject}}",
     "msdyn_fromdate": "{{scheduledstart}}",
@@ -61,6 +48,7 @@
       "option": 690970000
     }
   },
+
   "reserva": {
     "resource": {
       "id": "{{resource_id}}"
