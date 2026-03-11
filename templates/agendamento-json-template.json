@@ -9,11 +9,8 @@
     "crm_unidadeinteresse": {
       "id": "{{unidade_id}}"
     },
-    "crm_servicoeducacionalinteresse": {
-      "id": "{{responsavel_serie_id}}"
-    },
     "col_comoconheceu": {
-      "option": 191030009
+      "option": 181400003
     },
     "pos_origem_positivo": {
       "option": 3

@@ -383,7 +383,7 @@ class Positivo_CRM_Admin
                     'Authorization' => 'Basic bXktYW5ndWxhci1hcHA6QDMyMQ==',
                 ],
                 'body' => [
-                    'username' => 'vagner.santos@codeit.com.br', // ⚠️ ideal mover para options
+                    'username' => 'positivo@positivo.com.br', // ⚠️ ideal mover para options
                     'password' => 'Jursp@2013',                  // ⚠️ ideal mover para options
                     'grant_type' => 'password',
                 ],
@@ -2402,6 +2402,15 @@ class Positivo_CRM_Admin
         $utm_term = sanitize_text_field($_POST['utm_term'] ?? $_COOKIE['utm_term'] ?? '');
         $utm_content = sanitize_text_field($_POST['utm_content'] ?? $_COOKIE['utm_content'] ?? '');
 
+        // ALUNO
+        $nome_completo = trim(preg_replace('/\s+/', ' ', $agendamento->aluno_nome));
+        $nome_parts = explode(' ', $nome_completo, 2);
+
+
+        $aluno_nome = $nome_parts[0] ?? '';
+        $aluno_sobrenome = $nome_parts[1] ?? '';
+
+
         // ============================
         // VARIÁVEIS DO TEMPLATE
         // ============================
@@ -2412,8 +2421,8 @@ class Positivo_CRM_Admin
             '{{responsavel_telefone}}' => $agendamento->responsavel_telefone,
             '{{responsavel_serie_id}}' => preg_replace('/^\{|\}$/', '', $responsavel_serie_id),
 
-            '{{aluno_nome}}' => $agendamento->aluno_nome,
-            '{{aluno_sobrenome}}' => $agendamento->aluno_sobrenome,
+            '{{aluno_nome}}' => $aluno_nome,
+            '{{aluno_sobrenome}}' => $aluno_sobrenome,
             '{{aluno_ano_interesse}}' => intval($agendamento->aluno_ano_interesse),
             '{{aluno_escola_origem}}' => $agendamento->aluno_escola_origem ?: '',
 
@@ -2441,7 +2450,6 @@ class Positivo_CRM_Admin
             '{{subject}}' => 'Visita - ' . $agendamento->unidade_nome,
             '{{description}}' => 'Agendamento criado via site.'
         ];
-
 
         // ============================
         // CARREGA TEMPLATE JSON
