@@ -141,7 +141,7 @@ $css_content = '
 
   nav.main-nav a {
     color: #fff;
-    text-decoration: none;
+    text-decoration: block;
     display: flex;
     align-items: center;
     gap: 4px;
@@ -1172,6 +1172,8 @@ $html_body = '
                   name="aluno_escola[]"
                   data-placeholder="Digite o nome da escola"
                   style="width:100%">
+                    <option></option>
+                    <option value="primeira_escola">Primeira Escola</option>
                 </select>
               </div>
               <div class="form-group form-row-2-small" style="display:flex; gap:16px; flex-wrap:wrap;">
@@ -1319,6 +1321,27 @@ echo '<script type="text/javascript">';
 echo <<<'JAVASCRIPT'
 (function($) {
   $(document).ready(function() {
+      function getUTMParams() {
+        const params = new URLSearchParams(window.location.search);
+        const utms = [
+            'utm_source',
+            'utm_medium',
+            'utm_campaign',
+            'utm_term',
+            'utm_content'
+        ];
+        utms.forEach(function(param) {
+            const value = params.get(param);
+
+            if (value) {
+                const input = document.querySelector(`input[name="${param}"]`);
+                if (input) {
+                    input.value = value;
+                }
+            }
+        });
+      }
+      getUTMParams();
 
       const $form = $("#agendamento-form");
       const $stepsHeader = $(".steps-header");
@@ -1615,7 +1638,10 @@ echo <<<'JAVASCRIPT'
           }
 
           const responsavel = resp.data.responsavel || null;
-          const alunos = resp.data.alunos || [];
+          let alunos = resp.data.alunos || [];
+          if (typeof alunos === "object" && alunos !== null && !Array.isArray(alunos)) {
+              alunos = [alunos];
+          }
 
           if (!responsavel) {
               $("#studentsBox").addClass("hidden");
@@ -1843,6 +1869,7 @@ echo <<<'JAVASCRIPT'
 
         const $container = $("#agendaDias");
         $container.html("<p>Carregando datas disponíveis...</p>");
+        $("#submitAgendamento").prop("disabled", true);
 
         $.post(PositivoCRM.ajax_url, {
             action: "positivo_crm_get_next_available_dates",
@@ -1850,6 +1877,7 @@ echo <<<'JAVASCRIPT'
             unit: unidadeID
         })
         .done(function (resp) {
+          $("#submitAgendamento").prop("disabled", false);
           // 🔥 CORREÇÃO PRINCIPAL AQUI
           if (
               !resp.success ||
@@ -1898,7 +1926,8 @@ echo <<<'JAVASCRIPT'
           $container.html(html);
       })
         .fail(function () {
-            $container.html("<p>Erro ao carregar agenda.</p>");
+          $("#submitAgendamento").prop("disabled", false);
+          $container.html("<p>Erro ao carregar agenda.</p>");
         });
     }
     /* ============================================================
@@ -2410,7 +2439,7 @@ echo <<<'JAVASCRIPT'
     // ===============================
     function atualizarDisabledFormulario() {
       //document.querySelector('.top-selects')?.style.setProperty('display','block');
-      //  return null; 
+      // return null; 
 
 
 

@@ -326,6 +326,7 @@ class Positivo_CRM_Admin
 
         $temp = $dados;
         $temp['alunos'] = $alunos;
+        $temp['utms'] = $utms;
 
         Positivo_CRM_Logger::info("DADOS PARA INSERIR", [
             'dados' => $temp
@@ -354,6 +355,7 @@ class Positivo_CRM_Admin
         // ============================================================
         // Prepara Alunos
         $dados['alunos'] = $alunos;
+        $dados['utms'] = $utms;
         $crm = $this->enviar_agendamento_para_crm_json($dados);
 
         // $crm = $this->enviar_agendamento_para_crm($agendamento_id);
@@ -2395,11 +2397,12 @@ class Positivo_CRM_Admin
         // UTM
         // ============================
 
-        $utm_source = sanitize_text_field($_POST['utm_source'] ?? $_COOKIE['utm_source'] ?? '');
-        $utm_medium = sanitize_text_field($_POST['utm_medium'] ?? $_COOKIE['utm_medium'] ?? '');
-        $utm_campaign = sanitize_text_field($_POST['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? '');
-        $utm_term = sanitize_text_field($_POST['utm_term'] ?? $_COOKIE['utm_term'] ?? '');
-        $utm_content = sanitize_text_field($_POST['utm_content'] ?? $_COOKIE['utm_content'] ?? '');
+
+        $utm_source = sanitize_text_field($data['utms']['utm_source'] ?? $_COOKIE['utm_source'] ?? '');
+        $utm_medium = sanitize_text_field($data['utms']['utm_medium'] ?? $_COOKIE['utm_medium'] ?? '');
+        $utm_campaign = sanitize_text_field($data['utms']['utm_campaign'] ?? $_COOKIE['utm_campaign'] ?? '');
+        $utm_term = sanitize_text_field($data['utms']['utm_term'] ?? $_COOKIE['utm_term'] ?? '');
+        $utm_content = sanitize_text_field($data['utms']['utm_content'] ?? $_COOKIE['utm_content'] ?? '');
 
         // ============================
         // DEPENDENTES
@@ -2428,7 +2431,7 @@ class Positivo_CRM_Admin
                     "id" => $aluno['serie_id']
                 ],
                 "col_anointeresse" => intval($aluno['ano_interesse']),
-                "crmeduc_escoladeorigem" => $aluno['escola_origem']
+                "crmeduc_escoladeorigem" => ($aluno['escola_origem'] != "") ? $aluno['escola_origem'] : "Não localizei minha escola/Primeira Escola"
             ]);
         }
 
@@ -2474,7 +2477,6 @@ class Positivo_CRM_Admin
             array_values($variables),
             $json_template
         );
-        
         $payload = json_decode($json_body, true);
 
         // ============================
