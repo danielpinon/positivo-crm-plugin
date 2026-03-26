@@ -383,6 +383,8 @@ class Positivo_CRM_Admin
     }
     public function positivo_crm_search_eschool_public()
     {
+        global $wpdb;
+
         // Se vier nonce, valida
         if (isset($_POST['nonce'])) {
             check_ajax_referer('positivo-crm-nonce', 'nonce');
@@ -398,80 +400,59 @@ class Positivo_CRM_Admin
 
         /**
          * ============================
-         * 1️⃣ AUTENTICAÇÃO (OAuth)
+         * 1️⃣ BUSCA NO BANCO LOCAL
          * ============================
          */
-        $auth_response = wp_remote_post(
-            'https://app.codeit.com.br/oauth/token',
-            [
-                'timeout' => 20,
-                'headers' => [
-                    'Authorization' => 'Basic bXktYW5ndWxhci1hcHA6QDMyMQ==',
-                ],
-                'body' => [
-                    'username' => 'positivo@positivo.com.br', // ⚠️ ideal mover para options
-                    'password' => 'Jursp@2013',                  // ⚠️ ideal mover para options
-                    'grant_type' => 'password',
-                ],
-                "sslverify" => false,
-            ]
+        $table = 'rh_instituicao_ensino'; // ajuste se NÃO usar prefixo
+
+        $results = $wpdb->get_results(
+            $wpdb->prepare(
+                "
+            SELECT 
+                id,
+                descricao,
+                grau,
+                status,
+                endereco,
+                latitude,
+                longitude,
+                cep
+            FROM {$table}
+            WHERE descricao LIKE %s
+            LIMIT 30
+            ",
+                '%' . $wpdb->esc_like($descricao) . '%'
+            ),
+            ARRAY_A
         );
-
-        if (is_wp_error($auth_response)) {
-            wp_send_json_error([
-                'message' => 'Erro ao autenticar',
-                'error' => $auth_response->get_error_message()
-            ]);
-        }
-
-        $auth_body = json_decode(wp_remote_retrieve_body($auth_response), true);
-
-        if (empty($auth_body['access_token'])) {
-            wp_send_json_error([
-                'message' => 'Token não retornado pela API'
-            ]);
-        }
-
-        $token = $auth_body['access_token'];
 
         /**
          * ============================
-         * 2️⃣ BUSCA INSTITUIÇÕES
+         * 2️⃣ NORMALIZAÇÃO DO RETORNO
          * ============================
          */
-        $search_response = wp_remote_get(
-            'https://app.codeit.com.br/api/instituicao_ensino/filtrar?descricao=' . urlencode($descricao),
-            [
-                'timeout' => 20,
-                'headers' => [
-                    'Authorization' => 'Bearer ' . $token,
-                    'Accept' => 'application/json',
-                ],
-                "sslverify" => false,
-            ]
-        );
-
-        if (is_wp_error($search_response)) {
-            wp_send_json_error([
-                'message' => 'Erro ao buscar escolas',
-                'error' => $search_response->get_error_message()
-            ]);
-        }
-
-        $result = json_decode(wp_remote_retrieve_body($search_response), true);
+        $data = array_map(function ($item) {
+            return [
+                'id' => (int) $item['id'],
+                'descricao' => $item['descricao'],
+                'grau' => $item['grau'] ?? null,
+                'status' => $item['status'] ?? null,
+                'endereco' => $item['endereco'] ?? '',
+                'latitude' => $item['latitude'] ?? '',
+                'longitude' => $item['longitude'] ?? '',
+                'cep' => $item['cep'] ?? null,
+            ];
+        }, $results);
 
         /**
          * ============================
-         * 3️⃣ RETORNO AJAX
+         * 3️⃣ RETORNO (MESMO FORMATO)
          * ============================
          */
         wp_send_json_success([
-            'data' => $result
+            'data' => $data
         ]);
     }
-
-
-
 
 
     /**
