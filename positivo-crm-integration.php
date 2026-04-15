@@ -4,7 +4,7 @@ require_once __DIR__.'/debug-helper.php';
  * Plugin Name: Positivo CRM Educational Integration
  * Plugin URI:  https://github.com/
  * Description: Plugin para integrar o frontend de agendamento com a API do CRM Educacional do Colégio Positivo.
- * Version:     1.1.4
+ * Version:     1.1.6
  * Author:      Mentores
  * Author URI:  https://mentores.com.br
  * License:     GPL2
@@ -18,6 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'POSITIVO_CRM_PATH', plugin_dir_path( __FILE__ ) );
 define( 'POSITIVO_CRM_URL', plugin_dir_url( __FILE__ ) );
+define( 'POSITIVO_CRM_DB_VERSION', '1.1.5' );
 
 // Exporte a versão do plugin de forma programática. Isso é usado para quebrar caches de scripts
 // quando assets são atualizados. Se você alterar o número de versão no cabeçalho do plugin,
@@ -45,15 +46,88 @@ require_once POSITIVO_CRM_PATH . 'includes/class-positivo-crm-admin.php';
  *
  * Cria as tabelas necessárias no banco de dados e define opções padrão.
  */
-function positivo_crm_activate() {
-    // Garante que a classe esteja disponível
+function positivo_crm_install_site() {
     if ( class_exists( 'Positivo_CRM_Admin' ) ) {
         Positivo_CRM_Admin::install_tables();
     }
 }
 
+/**
+ * Executa instalação do plugin no contexto do site atual ou de toda a rede.
+ *
+ * @param bool $network_wide Se a ativação ocorreu em rede.
+ */
+function positivo_crm_activate( $network_wide ) {
+    if ( is_multisite() && $network_wide ) {
+        $site_ids = get_sites( array(
+            'fields' => 'ids',
+            'number' => 0,
+        ) );
+
+        foreach ( $site_ids as $site_id ) {
+            switch_to_blog( (int) $site_id );
+            positivo_crm_install_site();
+            restore_current_blog();
+        }
+
+        return;
+    }
+
+    positivo_crm_install_site();
+}
+
+/**
+ * Garante que o schema do plugin exista e esteja atualizado no site atual.
+ */
+function positivo_crm_maybe_upgrade_site() {
+    $installed_version = get_option( 'positivo_crm_db_version' );
+
+    if ( $installed_version === POSITIVO_CRM_DB_VERSION ) {
+        return;
+    }
+
+    positivo_crm_install_site();
+}
+
+/**
+ * Instala o plugin automaticamente para novos sites em uma rede multisite.
+ *
+ * @param WP_Site $new_site Objeto do novo site.
+ */
+function positivo_crm_on_initialize_site( $new_site ) {
+    $active_sitewide_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
+
+    if ( ! isset( $active_sitewide_plugins[ plugin_basename( __FILE__ ) ] ) ) {
+        return;
+    }
+
+    switch_to_blog( (int) $new_site->blog_id );
+    positivo_crm_install_site();
+    restore_current_blog();
+}
+
+/**
+ * Compatibilidade com hooks legados de criação de blog em multisite.
+ *
+ * @param int $blog_id ID do novo site.
+ */
+function positivo_crm_on_new_blog( $blog_id ) {
+    $active_sitewide_plugins = (array) get_site_option( 'active_sitewide_plugins', array() );
+
+    if ( ! isset( $active_sitewide_plugins[ plugin_basename( __FILE__ ) ] ) ) {
+        return;
+    }
+
+    switch_to_blog( (int) $blog_id );
+    positivo_crm_install_site();
+    restore_current_blog();
+}
+
 // Registra a função de ativação
 register_activation_hook( __FILE__, 'positivo_crm_activate' );
+add_action( 'plugins_loaded', 'positivo_crm_maybe_upgrade_site', 5 );
+add_action( 'wp_initialize_site', 'positivo_crm_on_initialize_site' );
+add_action( 'wpmu_new_blog', 'positivo_crm_on_new_blog' );
 
 /**
  * Função principal para iniciar o plugin.

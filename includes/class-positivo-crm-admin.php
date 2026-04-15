@@ -1215,6 +1215,7 @@ class Positivo_CRM_Admin
 
         // Executar migração para adicionar colunas faltantes em tabelas existentes
         self::migrate_agendamentos_table();
+        update_option('positivo_crm_db_version', POSITIVO_CRM_DB_VERSION);
     }
 
     /**

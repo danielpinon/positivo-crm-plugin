@@ -879,6 +879,43 @@ $css_content = '
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
   }
+  .loading-box--dates {
+    margin-top: 8px;
+    padding: 18px 20px;
+    border-color: rgba(239, 108, 0, 0.22);
+    background: linear-gradient(135deg, #fff7f0 0%, #fff1e3 100%);
+    box-shadow: 0 10px 24px rgba(239, 108, 0, 0.08);
+  }
+  .loading-box--dates p {
+    margin: 0;
+    color: #c45400;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .loading-box--dates .spinner {
+    width: 22px;
+    height: 22px;
+    border-width: 3px;
+    border-color: #ffd4b0;
+    border-top-color: var(--brand-orange);
+    flex-shrink: 0;
+  }
+  .agenda-status-box {
+    margin-top: 8px;
+    padding: 18px 20px;
+    border: 1px solid rgba(239, 108, 0, 0.18);
+    border-radius: 10px;
+    background: #fff8f3;
+    color: #9f4700;
+  }
+  .agenda-status-box p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  .agenda-status-box .btn {
+    margin-top: 12px;
+  }
   @keyframes spin {
     to { transform: rotate(360deg); }
   }
@@ -997,6 +1034,12 @@ $css_content = '
   .select2-selection--single {
     border-color: #f58220; /* laranja Positivo */
     box-shadow: 0 0 0 1px rgba(245,130,32,.3);
+  }
+
+  .select2-container--open .select2-search__field {
+    color: #2b2b2b !important;
+    caret-color: #2b2b2b;
+    font-family: var(--font-main);
   }
 
   .select2-results__option,
@@ -1460,7 +1503,7 @@ echo <<<'JAVASCRIPT'
         if (ano) txt.push("Ano: " + ano);
 
         const p = $("<p>").html(txt.join(" • "));
-        const btn = $("<button>").addClass("btn secondary select-aluno").text("Selecionar");
+        const btn = $("<button>").attr("type", "button").addClass("btn secondary select-aluno").text("Selecionar");
 
         btn.on("click", function(e) {
           e.stopPropagation();
@@ -1577,6 +1620,7 @@ echo <<<'JAVASCRIPT'
           .prop('disabled', true);
         return;
       }
+
       const series = unidade.series;
       const servico = unidade.servico;
       const recurso = unidade.recurso;
@@ -1778,6 +1822,17 @@ echo <<<'JAVASCRIPT'
         $el.on('select2:opening', function () {
             $(this).val(null).trigger('change');
         });
+
+        $el.on('select2:open', function () {
+            const searchField = document.querySelector('.select2-container--open .select2-search__field');
+            if (!searchField) return;
+
+            // Força o foco no campo de busca interno para o cursor aparecer já no primeiro clique.
+            requestAnimationFrame(() => {
+                searchField.focus();
+                searchField.click();
+            });
+        });
       });
     }
     initEscolaSelect($('.aluno-fields').first());
@@ -1868,16 +1923,36 @@ echo <<<'JAVASCRIPT'
         }
 
         const $container = $("#agendaDias");
-        $container.html("<p>Carregando datas disponíveis...</p>");
+        function renderAgendaMensagem(texto, mostrarBotao) {
+          let html =
+            '<div class="agenda-status-box">' +
+              "<p>" + texto + "</p>";
+          if (mostrarBotao) {
+            html += '<button type="button" class="btn secondary retry-agenda">Tentar novamente</button>';
+          }
+          html += "</div>";
+          $container.html(html);
+        }
+
+        $container.html(
+          '<div class="loading-box loading-box--dates">' +
+            '<div class="spinner" aria-hidden="true"></div>' +
+            "<p>Carregando datas disponiveis...</p>" +
+          "</div>"
+        );
         $("#submitAgendamento").prop("disabled", true);
 
-        $.post(PositivoCRM.ajax_url, {
+        $.ajax({
+          url: PositivoCRM.ajax_url,
+          type: "POST",
+          timeout: 15000,
+          data: {
             action: "positivo_crm_get_next_available_dates",
             nonce: PositivoCRM.nonce,
             unit: unidadeID
+          }
         })
         .done(function (resp) {
-          $("#submitAgendamento").prop("disabled", false);
           // 🔥 CORREÇÃO PRINCIPAL AQUI
           if (
               !resp.success ||
@@ -1885,7 +1960,7 @@ echo <<<'JAVASCRIPT'
               !Array.isArray(resp.data.dates) ||
               resp.data.dates.length === 0
           ) {
-              $container.html("<p>Nenhuma data disponível.</p>");
+              renderAgendaMensagem("Nenhuma data disponivel no momento para esta unidade.", true);
               return;
           }
           let html = "";
@@ -1923,11 +1998,20 @@ echo <<<'JAVASCRIPT'
                 </div>
               `;
           });
+          if (!html) {
+              renderAgendaMensagem("Nao encontramos horarios disponiveis para as proximas datas desta unidade.", true);
+              return;
+          }
           $container.html(html);
       })
-        .fail(function () {
+        .fail(function (_xhr, textStatus) {
+          const mensagem = textStatus === "timeout"
+            ? "A busca pelas datas demorou mais do que o esperado. Tente novamente."
+            : "Erro ao carregar agenda. Tente novamente.";
+          renderAgendaMensagem(mensagem, true);
+        })
+        .always(function () {
           $("#submitAgendamento").prop("disabled", false);
-          $container.html("<p>Erro ao carregar agenda.</p>");
         });
     }
     /* ============================================================
@@ -1939,6 +2023,9 @@ echo <<<'JAVASCRIPT'
         $btn.addClass("selected");
         $("#selected_date").val($btn.data("date"));
         $("#selected_time").val($btn.data("time"));
+    });
+    $(document).on("click", ".retry-agenda", function () {
+      carregarProximosDias();
     });
     document.addEventListener('click', function (e) {
       const slot = e.target.closest('.time-slot');
@@ -1983,20 +2070,28 @@ echo <<<'JAVASCRIPT'
               let recurso = null;
               if (unit.pos_mapeamentoseries) {
                 try {
-                  const seriesObj = JSON.parse(unit.pos_mapeamentoseries)[nome]?.Series;
-                  const ag = JSON.parse(unit.pos_mapeamentoseries)[nome]?.Agendamento;
-                  servico = ag?.Servico || null;
-                  recurso = ag?.Recurso || null;
-
+                  const parsed = JSON.parse(unit.pos_mapeamentoseries);
+                  const unidade = parsed[nome] || parsed["Unidade"]; // fallback
+                  if (!unidade) {
+                    console.warn("Unidade não encontrada no JSON:", nome);
+                    return;
+                  }
+                  // Corrige inconsistência de chave
+                  const seriesObj = unidade.Series || unidade["Séries"];
+                  const ag = unidade.Agendamento || {};
+                  // Corrige inconsistência de chave
+                  servico = ag.Servico || ag["Serviço"] || null;
+                  recurso = ag.Recurso || null;
                   if (seriesObj && typeof seriesObj === 'object') {
                     series = Object.entries(seriesObj)
                       .map(([nome, id]) => ({ id, nome }))
                       .filter(s => s.id && s.nome);
                   }
-
                 } catch (e) {
                   console.error("Erro ao parsear séries da unidade:", nome, e);
                 }
+              } else {
+                console.warn("Unidade sem mapeamento de séries:", nome);
               }
               if (!unitsByCity[cityKey]) { unitsByCity[cityKey] = []; }
               unitsByCity[cityKey].push({ id: id, name: nome, endereco: endereco, cidade: cidade, series: series, servico: servico, recurso: recurso});
@@ -2144,7 +2239,7 @@ echo <<<'JAVASCRIPT'
 
       // 🔥 clone limpo
       const $clone = $container.clone(false, false);
-      console.log($clone);
+      // console.log($clone);
 
       // 🔥 REMOVE Select2 antigo do clone
       $clone.find('.select2').remove();
@@ -2346,13 +2441,13 @@ echo <<<'JAVASCRIPT'
 
     if (select.name === 'cidade') {
       window.syncEscola.cidade = option.text;
-      console.log('🏙️ Cidade capturada:', option.text);
+      // console.log('🏙️ Cidade capturada:', option.text);
       tentarPreencherFormulario();
     }
 
     if (select.name === 'colegio') {
       window.syncEscola.unidade = option.text;
-      console.log('🏫 Unidade capturada:', option.text);
+      // console.log('🏫 Unidade capturada:', option.text);
       tentarPreencherFormulario();
     }
     atualizarDisabledFormulario();
@@ -2431,14 +2526,14 @@ echo <<<'JAVASCRIPT'
     select.dispatchEvent(new Event('change', { bubbles: true }));
     select.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    console.log('✅ Opção marcada (contains):', option.text);
+    // console.log('✅ Opção marcada (contains):', option.text);
   }
 
     // ===============================
     // 5️⃣ Controla disabled do HTML
     // ===============================
     function atualizarDisabledFormulario() {
-      //document.querySelector('.top-selects')?.style.setProperty('display','block');
+      // document.querySelector('.top-selects')?.style.setProperty('display','block');
       // return null; 
 
 
@@ -2462,11 +2557,11 @@ echo <<<'JAVASCRIPT'
       });
       atualizarClasseVisual();
 
-      console.log(
-        liberar
-          ? '🟢 HTML habilitado'
-          : '🔒 HTML desabilitado'
-      );
+      // console.log(
+      //   liberar
+      //     ? '🟢 HTML habilitado'
+      //     : '🔒 HTML desabilitado'
+      // );
 
     }
     document.addEventListener('DOMContentLoaded', () => {
