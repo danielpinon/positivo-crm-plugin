@@ -4,7 +4,7 @@ require_once __DIR__.'/debug-helper.php';
  * Plugin Name: Positivo CRM Educational Integration
  * Plugin URI:  https://github.com/
  * Description: Plugin para integrar o frontend de agendamento com a API do CRM Educacional do Colégio Positivo.
- * Version:     1.1.6
+ * Version:     1.1.9
  * Author:      Mentores
  * Author URI:  https://mentores.com.br
  * License:     GPL2
@@ -18,7 +18,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 define( 'POSITIVO_CRM_PATH', plugin_dir_path( __FILE__ ) );
 define( 'POSITIVO_CRM_URL', plugin_dir_url( __FILE__ ) );
-define( 'POSITIVO_CRM_DB_VERSION', '1.1.5' );
+define( 'POSITIVO_CRM_DB_VERSION', '1.1.9' );
 
 // Exporte a versão do plugin de forma programática. Isso é usado para quebrar caches de scripts
 // quando assets são atualizados. Se você alterar o número de versão no cabeçalho do plugin,
@@ -32,7 +32,7 @@ if ( ! defined( 'POSITIVO_CRM_VERSION' ) ) {
     // (cad_categoriaid) no frontend. Essa mudança ajuda a invalidar
     // corretamente o cache dos arquivos JS/CSS quando eles são
     // modificados.
-    define( 'POSITIVO_CRM_VERSION', '1.1.0' );
+    define( 'POSITIVO_CRM_VERSION', '1.1.9' );
 }
 
 // Inclui as classes principais do plugin

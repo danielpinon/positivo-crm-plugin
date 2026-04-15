@@ -1001,10 +1001,12 @@ $css_content = '
     height: 48px !important;
     display: flex !important;
     align-items: center !important;
+    cursor: pointer;
   }
 
   .select2-selection__rendered {
     line-height: normal !important;
+    pointer-events: none;
   }
 
   .select2-selection__arrow {
@@ -1027,6 +1029,7 @@ $css_content = '
   .select2-selection__arrow {
     height: 100%;
     right: 10px;
+    pointer-events: none;
   }
 
   /* Foco (igual input) */
@@ -1209,7 +1212,7 @@ $html_body = '
                 <input type="text" name="aluno_nome[]" required />
               </div>
               <div class="form-group escola-origem-group">
-                <label>Selecione a Escola de Origem <span class="required">*</span></label>
+                <label class="escola-origem-label">Selecione a Escola de Origem <span class="required">*</span></label>
                 <select
                   class="escola-select"
                   name="aluno_escola[]"
@@ -1767,6 +1770,16 @@ echo <<<'JAVASCRIPT'
     function initEscolaSelect(context = document) {
       $(context).find('.escola-select').each(function () {
         const $el = $(this);
+        const $group = $el.closest('.escola-origem-group');
+        const $label = $group.find('.escola-origem-label').first();
+
+        if (!$el.attr('id')) {
+            $el.attr('id', 'escola-select-' + Math.random().toString(36).slice(2, 10));
+        }
+
+        if ($label.length) {
+            $label.attr('for', $el.attr('id'));
+        }
 
         // ✅ Só destrói se o Select2 EXISTIR de verdade
         if ($el.data('select2')) {
@@ -1818,10 +1831,6 @@ echo <<<'JAVASCRIPT'
               }
           }
         });
-        // 🔥 ao abrir o select, limpa o valor anterior
-        $el.on('select2:opening', function () {
-            $(this).val(null).trigger('change');
-        });
 
         $el.on('select2:open', function () {
             const searchField = document.querySelector('.select2-container--open .select2-search__field');
@@ -1832,6 +1841,21 @@ echo <<<'JAVASCRIPT'
                 searchField.focus();
                 searchField.click();
             });
+        });
+
+        if ($label.length) {
+            $label.off('click.select2Label').on('click.select2Label', function (event) {
+                event.preventDefault();
+                $el.select2('open');
+            });
+        }
+
+        $group.off('click.select2Group').on('click.select2Group', function (event) {
+            if ($(event.target).closest('.select2-container, .select2-dropdown').length) {
+                return;
+            }
+
+            $el.select2('open');
         });
       });
     }
