@@ -11,6 +11,65 @@ if (!defined('ABSPATH')) {
  */
 class Positivo_CRM_API
 {
+	private function require_public_ajax_nonce()
+	{
+		check_ajax_referer('positivo-crm-nonce', 'nonce');
+	}
+
+	private function enforce_public_rate_limit($action, $limit = 20, $window = 300)
+	{
+		$ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
+		$key = 'positivo_crm_rl_' . md5($action . '|' . $ip);
+		$attempts = (int) get_transient($key);
+
+		if ($attempts >= $limit) {
+			wp_send_json_error(array('message' => 'Muitas tentativas. Aguarde alguns minutos e tente novamente.'), 429);
+		}
+
+		set_transient($key, $attempts + 1, $window);
+	}
+
+	private function sanitize_responsavel_public_data($responsavel)
+	{
+		if (!is_array($responsavel)) {
+			return null;
+		}
+
+		return array(
+			'leadid' => sanitize_text_field($responsavel['leadid'] ?? ''),
+			'fullname' => sanitize_text_field($responsavel['fullname'] ?? ''),
+			'emailaddress1' => sanitize_email($responsavel['emailaddress1'] ?? ''),
+		);
+	}
+
+	private function sanitize_students_public_data($students)
+	{
+		if (!is_array($students)) {
+			return array();
+		}
+
+		return array_values(array_map(function ($student) {
+			return array(
+				'leadid' => sanitize_text_field($student['leadid'] ?? $student['studentid'] ?? $student['id'] ?? ''),
+				'fullname' => sanitize_text_field($student['fullname'] ?? $student['nome'] ?? $student['aluno_nome'] ?? ''),
+				'aluno_serie' => sanitize_text_field($student['aluno_serie'] ?? $student['serie'] ?? $student['col_turnointeresse'] ?? ''),
+				'aluno_ano' => sanitize_text_field($student['aluno_ano'] ?? $student['ano'] ?? $student['col_anointeresse'] ?? ''),
+				'aluno_escola' => sanitize_text_field($student['aluno_escola'] ?? $student['escola'] ?? $student['school'] ?? $student['cad_inscricaoatual'] ?? ''),
+				'aluno_nascimento' => sanitize_text_field($student['aluno_nascimento'] ?? $student['cad_datanascimento'] ?? $student['nascimento'] ?? ''),
+			);
+		}, $students));
+	}
+
+	public function rest_require_nonce($request)
+	{
+		$nonce = $request->get_header('X-WP-Nonce');
+
+		if (empty($nonce)) {
+			$nonce = $request->get_param('nonce');
+		}
+
+		return !empty($nonce) && (wp_verify_nonce($nonce, 'wp_rest') || wp_verify_nonce($nonce, 'positivo-crm-nonce'));
+	}
 
 	// Defina as constantes de configuração da API.
 	// O usuário precisará fornecer os valores reais para {{base_url}}, {{token_path}}, {{protected_path}},
@@ -148,7 +207,6 @@ class Positivo_CRM_API
 				'Accept' => 'application/json',
 			),
 			'body' => $body,
-			"sslverify" => false,
 		));
 
 		return $this->handle_token_response($response);
@@ -188,7 +246,6 @@ class Positivo_CRM_API
 				'Accept' => 'application/json',
 			),
 			'body' => $body,
-			"sslverify" => false,
 		));
 
 		return $this->handle_token_response($response);
@@ -329,20 +386,19 @@ class Positivo_CRM_API
 			);
 		} else {
 			// Para métodos POST/PUT etc., use WP_HTTP API normalmente.
-			$args = array(
-				'method' => $method,
-				'headers' => array(
-					'Authorization' => 'Bearer ' . $access_token,
-					'Accept' => 'application/json',
+				$args = array(
+					'method' => $method,
+					'headers' => array(
+						'Authorization' => 'Bearer ' . $access_token,
+						'Accept' => 'application/json',
 					// Content-Type: application/xml para corpo FetchXML
 					'Content-Type' => 'application/xml',
-				),
-				'body' => $fetch_xml,
-				'timeout' => 30,
-				"sslverify" => false,
-			);
-			$response = wp_remote_request($url, $args);
-		}
+					),
+					'body' => $fetch_xml,
+					'timeout' => 30,
+				);
+				$response = wp_remote_request($url, $args);
+			}
 
 		if (is_wp_error($response)) {
 			return $response;
@@ -701,6 +757,8 @@ class Positivo_CRM_API
 
 	public function ajax_get_agendamentos()
 	{
+		$this->require_public_ajax_nonce();
+
 		$unidade_id = isset($_POST['unidade_id'])
 			? sanitize_text_field(wp_unslash($_POST['unidade_id']))
 			: '';
@@ -732,7 +790,7 @@ class Positivo_CRM_API
 	 */
 	public function ajax_get_units()
 	{
-		// Endpoint público - não requer autenticação
+		$this->require_public_ajax_nonce();
 
 		$response = $this->get_unidades();
 
@@ -752,7 +810,8 @@ class Positivo_CRM_API
 	 */
 	public function ajax_search_responsavel()
 	{
-		// Endpoint público - não requer autenticação
+		$this->require_public_ajax_nonce();
+		$this->enforce_public_rate_limit('api_search_responsavel', 10, 300);
 
 		$fullname = isset($_POST['fullname']) ? sanitize_text_field(wp_unslash($_POST['fullname'])) : '';
 
@@ -770,7 +829,9 @@ class Positivo_CRM_API
 			));
 		}
 
-		wp_send_json_success($response);
+		wp_send_json_success(array(
+			'result' => $this->sanitize_responsavel_public_data($response['result'] ?? null),
+		));
 	}
 
 	/**
@@ -778,6 +839,8 @@ class Positivo_CRM_API
 	 */
 	public function ajax_get_series()
 	{
+		$this->require_public_ajax_nonce();
+
 		$response = $this->get_series_escolares();
 
 		if (is_wp_error($response)) {
@@ -843,7 +906,8 @@ class Positivo_CRM_API
 	 */
 	public function ajax_get_students()
 	{
-		// Endpoint público - não requer autenticação
+		$this->require_public_ajax_nonce();
+		$this->enforce_public_rate_limit('api_get_students', 10, 300);
 
 		$responsavel_id = isset($_POST['responsavel_id']) ? sanitize_text_field(wp_unslash($_POST['responsavel_id'])) : '';
 
@@ -861,7 +925,9 @@ class Positivo_CRM_API
 			));
 		}
 
-		wp_send_json_success($response);
+		wp_send_json_success(array(
+			'result' => $this->sanitize_students_public_data($response['result'] ?? $response['value'] ?? array()),
+		));
 	}
 
 	/**
@@ -874,7 +940,7 @@ class Positivo_CRM_API
 	 */
 	public function ajax_submit_agendamento()
 	{
-		// Endpoint público - não requer autenticação
+		$this->require_public_ajax_nonce();
 
 		// 1. Validar e sanitizar os dados do formulário
 		$form_data = array();
@@ -913,42 +979,42 @@ class Positivo_CRM_API
 		register_rest_route('positivocrm/v1', '/units', array(
 			'methods' => 'GET',
 			'callback' => array($this, 'rest_get_units'),
-			'permission_callback' => '__return_true', // Acesso público
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 
 		// Endpoint para obter séries
 		register_rest_route('positivocrm/v1', '/series', array(
 			'methods' => 'GET',
 			'callback' => array($this, 'rest_get_series'),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 
 		// Endpoint para buscar responsável
 		register_rest_route('positivocrm/v1', '/search-responsavel', array(
 			'methods' => 'POST',
 			'callback' => array($this, 'rest_search_responsavel'),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 
 		// Endpoint para obter alunos
 		register_rest_route('positivocrm/v1', '/get-students', array(
 			'methods' => 'POST',
 			'callback' => array($this, 'rest_get_students'),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 
 		// Endpoint para obter horários
 		register_rest_route('positivocrm/v1', '/get-times', array(
 			'methods' => 'POST',
 			'callback' => array($this, 'rest_get_times'),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 
 		// Endpoint para submeter agendamento
 		register_rest_route('positivocrm/v1', '/submit-agendamento', array(
 			'methods' => 'POST',
 			'callback' => array($this, 'rest_submit_agendamento'),
-			'permission_callback' => '__return_true',
+			'permission_callback' => array($this, 'rest_require_nonce'),
 		));
 	}
 

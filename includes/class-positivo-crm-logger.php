@@ -31,6 +31,68 @@ class Positivo_CRM_Logger {
      * @var string
      */
     private static $log_path;
+
+    private static function mask_string( $value ) {
+        $value = (string) $value;
+        $length = strlen( $value );
+
+        if ( $length <= 4 ) {
+            return str_repeat( '*', $length );
+        }
+
+        return substr( $value, 0, 2 ) . str_repeat( '*', max( 0, $length - 4 ) ) . substr( $value, -2 );
+    }
+
+    private static function sanitize_context( $context ) {
+        if ( is_array( $context ) ) {
+            $sanitized = array();
+
+            foreach ( $context as $key => $value ) {
+                $normalized_key = is_string( $key ) ? strtolower( $key ) : $key;
+
+                if ( is_string( $normalized_key ) && in_array( $normalized_key, array(
+                    'authorization',
+                    'access_token',
+                    'refresh_token',
+                    'token',
+                    'password',
+                    'crm_password',
+                    'nonce',
+                    'form_data',
+                    'body',
+                    'response_body',
+                ), true ) ) {
+                    $sanitized[ $key ] = '[redacted]';
+                    continue;
+                }
+
+                if ( is_string( $normalized_key ) && in_array( $normalized_key, array(
+                    'responsavel_email',
+                    'email',
+                    'responsavel_telefone',
+                    'telefone',
+                    'phone',
+                    'fullname',
+                    'nome',
+                    'responsavel_nome',
+                    'aluno_nome',
+                ), true ) ) {
+                    $sanitized[ $key ] = self::mask_string( $value );
+                    continue;
+                }
+
+                $sanitized[ $key ] = self::sanitize_context( $value );
+            }
+
+            return $sanitized;
+        }
+
+        if ( is_string( $context ) && strlen( $context ) > 500 ) {
+            return substr( $context, 0, 500 ) . '...[truncated]';
+        }
+
+        return $context;
+    }
     
     /**
      * Verifica se o debug está habilitado
@@ -93,7 +155,7 @@ class Positivo_CRM_Logger {
         // Formatar contexto
         $context_str = '';
         if ( ! empty( $context ) ) {
-            $context_str = "\n" . print_r( $context, true );
+            $context_str = "\n" . print_r( self::sanitize_context( $context ), true );
         }
         
         // Formatar mensagem
@@ -199,7 +261,7 @@ class Positivo_CRM_Logger {
             'method' => $method,
             'url' => $url,
             'headers' => isset( $args['headers'] ) ? $args['headers'] : array(),
-            'body' => isset( $args['body'] ) ? $args['body'] : '',
+            'body' => ! empty( $args['body'] ) ? '[redacted request body]' : '',
         );
         
         // Ocultar token de autenticação no log
@@ -213,7 +275,7 @@ class Positivo_CRM_Logger {
                 self::error( "HTTP Request Failed: $method $url", $context );
             } else {
                 $context['response_code'] = wp_remote_retrieve_response_code( $response );
-                $context['response_body'] = wp_remote_retrieve_body( $response );
+                $context['response_body'] = '[redacted response body]';
                 self::debug( "HTTP Request: $method $url", $context );
             }
         } else {

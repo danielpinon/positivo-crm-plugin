@@ -13,6 +13,61 @@ if (!defined('ABSPATH')) {
  */
 class Positivo_CRM_Admin
 {
+    private function require_admin_permissions_ajax()
+    {
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error(['message' => __('Você não tem permissão para executar esta ação.', 'positivo-crm')], 403);
+        }
+    }
+
+    private function require_public_ajax_nonce()
+    {
+        check_ajax_referer('positivo-crm-nonce', 'nonce');
+    }
+
+    private function enforce_public_rate_limit($action, $limit = 20, $window = 300)
+    {
+        $ip = isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field(wp_unslash($_SERVER['REMOTE_ADDR'])) : 'unknown';
+        $key = 'positivo_crm_rl_' . md5($action . '|' . $ip);
+        $attempts = (int) get_transient($key);
+
+        if ($attempts >= $limit) {
+            wp_send_json_error(['message' => __('Muitas tentativas. Aguarde alguns minutos e tente novamente.', 'positivo-crm')], 429);
+        }
+
+        set_transient($key, $attempts + 1, $window);
+    }
+
+    private function sanitize_responsavel_public_data($responsavel)
+    {
+        if (!is_array($responsavel)) {
+            return null;
+        }
+
+        return [
+            'leadid' => sanitize_text_field($responsavel['leadid'] ?? ''),
+            'fullname' => sanitize_text_field($responsavel['fullname'] ?? ''),
+            'emailaddress1' => sanitize_email($responsavel['emailaddress1'] ?? ''),
+        ];
+    }
+
+    private function sanitize_alunos_public_data($alunos)
+    {
+        if (!is_array($alunos)) {
+            return [];
+        }
+
+        return array_values(array_map(function ($aluno) {
+            return [
+                'leadid' => sanitize_text_field($aluno['leadid'] ?? $aluno['studentid'] ?? $aluno['id'] ?? ''),
+                'fullname' => sanitize_text_field($aluno['fullname'] ?? $aluno['nome'] ?? $aluno['aluno_nome'] ?? ''),
+                'aluno_serie' => sanitize_text_field($aluno['aluno_serie'] ?? $aluno['serie'] ?? $aluno['col_turnointeresse'] ?? ''),
+                'aluno_ano' => sanitize_text_field($aluno['aluno_ano'] ?? $aluno['ano'] ?? $aluno['col_anointeresse'] ?? ''),
+                'aluno_escola' => sanitize_text_field($aluno['aluno_escola'] ?? $aluno['escola'] ?? $aluno['school'] ?? $aluno['cad_inscricaoatual'] ?? ''),
+                'aluno_nascimento' => sanitize_text_field($aluno['aluno_nascimento'] ?? $aluno['cad_datanascimento'] ?? $aluno['nascimento'] ?? ''),
+            ];
+        }, $alunos));
+    }
 
     /**
      * Construtor: registra os hooks necessários.
@@ -76,7 +131,7 @@ class Positivo_CRM_Admin
         global $wpdb;
 
         Positivo_CRM_Logger::info("Recebido submit_agendamento_public", [
-            'raw_post' => $_POST
+            'request_keys' => array_keys($_POST)
         ]);
 
         // ============================================================
@@ -115,7 +170,8 @@ class Positivo_CRM_Admin
 
 
         Positivo_CRM_Logger::info("FORM DECODIFICADO", [
-            'form' => $form
+            'fields' => array_keys($form),
+            'alunos_count' => is_array($form['aluno_nome'] ?? null) ? count($form['aluno_nome']) : 0
         ]);
 
 
@@ -385,10 +441,7 @@ class Positivo_CRM_Admin
     {
         global $wpdb;
 
-        // Se vier nonce, valida
-        if (isset($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        $this->require_public_ajax_nonce();
 
         $descricao = sanitize_text_field($_POST['descricao'] ?? '');
 
@@ -500,6 +553,7 @@ class Positivo_CRM_Admin
     public function ajax_test_token()
     {
         check_ajax_referer('positivo-crm-nonce', 'nonce');
+        $this->require_admin_permissions_ajax();
         if (!class_exists('Positivo_CRM_API')) {
             wp_send_json_error(array('message' => __('Classe da API não encontrada.', 'positivo-crm')));
         }
@@ -523,6 +577,7 @@ class Positivo_CRM_Admin
     public function ajax_test_units()
     {
         check_ajax_referer('positivo-crm-nonce', 'nonce');
+        $this->require_admin_permissions_ajax();
         if (!class_exists('Positivo_CRM_API')) {
             wp_send_json_error(array('message' => __('Classe da API não encontrada.', 'positivo-crm')));
         }
@@ -546,6 +601,7 @@ class Positivo_CRM_Admin
     public function ajax_test_responsavel()
     {
         check_ajax_referer('positivo-crm-nonce', 'nonce');
+        $this->require_admin_permissions_ajax();
         $name = isset($_POST['name']) ? sanitize_text_field(wp_unslash($_POST['name'])) : '';
         if (empty($name)) {
             wp_send_json_error(array('message' => __('Nome do responsável não fornecido.', 'positivo-crm')));
@@ -573,6 +629,7 @@ class Positivo_CRM_Admin
     public function ajax_test_alunos()
     {
         check_ajax_referer('positivo-crm-nonce', 'nonce');
+        $this->require_admin_permissions_ajax();
         $id = isset($_POST['responsavel_id']) ? sanitize_text_field(wp_unslash($_POST['responsavel_id'])) : '';
         if (empty($id)) {
             wp_send_json_error(array('message' => __('ID do responsável não fornecido.', 'positivo-crm')));
@@ -602,6 +659,7 @@ class Positivo_CRM_Admin
     public function ajax_test_series()
     {
         check_ajax_referer('positivo-crm-nonce', 'nonce');
+        $this->require_admin_permissions_ajax();
         if (!class_exists('Positivo_CRM_API')) {
             wp_send_json_error(array('message' => __('Classe da API não encontrada.', 'positivo-crm')));
         }
@@ -626,11 +684,9 @@ class Positivo_CRM_Admin
      */
     public function ajax_search_responsavel_frontend()
     {
-        Positivo_CRM_Logger::debug('AJAX callback: ajax_search_responsavel_frontend', array('post_data' => $_POST));
-        // Verifica nonce apenas se fornecido (permite acesso público)
-        if (isset($_POST['nonce']) && !empty($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        Positivo_CRM_Logger::debug('AJAX callback: ajax_search_responsavel_frontend', array('request_keys' => array_keys($_POST)));
+        $this->require_public_ajax_nonce();
+        $this->enforce_public_rate_limit('search_responsavel_frontend', 10, 300);
         $fullname = isset($_POST['fullname']) ? sanitize_text_field(wp_unslash($_POST['fullname'])) : '';
         if (empty($fullname)) {
             wp_send_json_error(array('message' => __('Nome do responsável não fornecido.', 'positivo-crm')));
@@ -647,7 +703,9 @@ class Positivo_CRM_Admin
                 'data' => $response->get_error_data(),
             ));
         }
-        wp_send_json_success($response);
+        wp_send_json_success([
+            'result' => $this->sanitize_responsavel_public_data($response['result'] ?? null),
+        ]);
     }
 
     /**
@@ -657,13 +715,11 @@ class Positivo_CRM_Admin
     public function ajax_get_responsavel_e_alunos()
     {
         Positivo_CRM_Logger::debug('AJAX callback: ajax_get_responsavel_e_alunos', [
-            'post_data' => $_POST
+            'request_keys' => array_keys($_POST)
         ]);
 
-        // Valida nonce
-        if (isset($_POST['nonce']) && !empty($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        $this->require_public_ajax_nonce();
+        $this->enforce_public_rate_limit('get_responsavel_e_alunos', 10, 300);
 
         $fullname = isset($_POST['fullname']) ? sanitize_text_field(wp_unslash($_POST['fullname'])) : '';
 
@@ -746,8 +802,8 @@ class Positivo_CRM_Admin
         |--------------------------------------------------------------------------
         */
         wp_send_json_success([
-            'responsavel' => $respItem,
-            'alunos' => $alunosList
+            'responsavel' => $this->sanitize_responsavel_public_data($respItem),
+            'alunos' => $this->sanitize_alunos_public_data($alunosList)
         ]);
     }
 
@@ -761,11 +817,9 @@ class Positivo_CRM_Admin
      */
     public function ajax_get_students()
     {
-        Positivo_CRM_Logger::debug('AJAX callback: ajax_get_students', array('post_data' => $_POST));
-        // Verifica nonce apenas se fornecido (permite acesso público)
-        if (isset($_POST['nonce']) && !empty($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        Positivo_CRM_Logger::debug('AJAX callback: ajax_get_students', array('request_keys' => array_keys($_POST)));
+        $this->require_public_ajax_nonce();
+        $this->enforce_public_rate_limit('get_students', 10, 300);
         $lead_id = isset($_POST['responsavel_id']) ? sanitize_text_field(wp_unslash($_POST['responsavel_id'])) : '';
         if (empty($lead_id)) {
             wp_send_json_error(array('message' => __('ID do responsável não fornecido.', 'positivo-crm')));
@@ -785,7 +839,9 @@ class Positivo_CRM_Admin
                 'data' => $response->get_error_data(),
             ));
         }
-        wp_send_json_success($response);
+        wp_send_json_success([
+            'result' => $this->sanitize_alunos_public_data($response['result'] ?? $response['value'] ?? []),
+        ]);
     }
 
     /**
@@ -828,9 +884,7 @@ class Positivo_CRM_Admin
      */
     public function ajax_get_next_available_dates()
     {
-        if (isset($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        $this->require_public_ajax_nonce();
 
         $unit = sanitize_text_field($_POST['unit'] ?? '');
 
@@ -1000,10 +1054,8 @@ class Positivo_CRM_Admin
     public function ajax_get_times()
     {
 
-        Positivo_CRM_Logger::debug('AJAX callback: ajax_get_times', ['post_data' => $_POST]);
-        if (isset($_POST['nonce']) && !empty($_POST['nonce'])) {
-            check_ajax_referer('positivo-crm-nonce', 'nonce');
-        }
+        Positivo_CRM_Logger::debug('AJAX callback: ajax_get_times', ['request_keys' => array_keys($_POST)]);
+        $this->require_public_ajax_nonce();
         $date = sanitize_text_field($_POST['date'] ?? '');
         $unit = sanitize_text_field($_POST['unit'] ?? '');
 
@@ -2481,7 +2533,6 @@ class Positivo_CRM_Admin
             ],
             'body' => json_encode($payload, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION),
             'timeout' => 60,
-            'sslverify' => false
         ]);
 
 
@@ -2658,7 +2709,6 @@ class Positivo_CRM_Admin
             ],
             'body' => json_encode($payload, JSON_PRETTY_PRINT | JSON_PRESERVE_ZERO_FRACTION),
             'timeout' => 60,
-            'sslverify' => false
         ]);
 
         if (is_wp_error($response)) {
