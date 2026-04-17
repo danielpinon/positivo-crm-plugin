@@ -910,6 +910,7 @@ class Positivo_CRM_Admin
 
         global $wpdb;
         $table_horarios = $wpdb->prefix . 'positivo_unidade_horarios';
+        $table_agenda = $wpdb->prefix . 'positivo_agendamentos';
 
         // Vamos buscar até no máximo 30 dias à frente
         for ($i = 0; $i < 30 && count($found) < $max_dates; $i++) {
@@ -1007,6 +1008,23 @@ class Positivo_CRM_Admin
                 }
             }
 
+
+            if (!empty($slots)) {
+                $agendados_locais = $wpdb->get_col(
+                    $wpdb->prepare(
+                        "SELECT hora_agendamento FROM {$table_agenda}
+                        WHERE data_agendamento = %s AND unidade_id = %s AND status IN ('pendente','enviado','cancelado')",
+                        $date_str,
+                        $unit
+                    )
+                );
+
+                $agendados_locais = array_map(function ($hora) {
+                    return substr($hora, 0, 5);
+                }, $agendados_locais);
+
+                $slots = array_values(array_diff($slots, $agendados_locais));
+            }
 
             if (!empty($slots)) {
                 sort($slots);
@@ -1177,7 +1195,7 @@ class Positivo_CRM_Admin
         $agendados = $wpdb->get_col(
             $wpdb->prepare(
                 "SELECT hora_agendamento FROM {$table_agenda}
-                WHERE data_agendamento = %s AND unidade_id = %s AND status IN ('pendente','enviado')",
+                WHERE data_agendamento = %s AND unidade_id = %s AND status IN ('pendente','enviado','cancelado')",
                 $date,
                 $unit
             )

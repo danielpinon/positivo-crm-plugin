@@ -1365,6 +1365,99 @@ echo '<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/selec
 // Agora o JS principal em um <script> separado
 echo '<script type="text/javascript">';
 echo <<<'JAVASCRIPT'
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[–—-]/g, ' ')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\b(colegio|colégio|bilingual school|school|unidade)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function tokenizarTexto(valor) {
+  return normalizarTexto(valor)
+    .split(' ')
+    .filter(Boolean);
+}
+
+function normalizarGuid(valor) {
+  return String(valor || '')
+    .replace(/[{}]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
+function calcularPontuacaoSimilaridade(origem, candidato) {
+  const origemNormalizada = normalizarTexto(origem);
+  const candidatoNormalizado = normalizarTexto(candidato);
+
+  if (!origemNormalizada || !candidatoNormalizado) {
+    return 0;
+  }
+
+  if (origemNormalizada === candidatoNormalizado) {
+    return 1000;
+  }
+
+  if (
+    origemNormalizada.includes(candidatoNormalizado) ||
+    candidatoNormalizado.includes(origemNormalizada)
+  ) {
+    return 800 - Math.abs(origemNormalizada.length - candidatoNormalizado.length);
+  }
+
+  const origemTokens = tokenizarTexto(origem);
+  const candidatoTokens = tokenizarTexto(candidato);
+
+  if (!origemTokens.length || !candidatoTokens.length) {
+    return 0;
+  }
+
+  const tokensEmComum = origemTokens.filter(function (token) {
+    return candidatoTokens.includes(token);
+  });
+  const coberturaOrigem = tokensEmComum.length / origemTokens.length;
+  const coberturaCandidato = tokensEmComum.length / candidatoTokens.length;
+
+  if (coberturaOrigem === 0 && coberturaCandidato === 0) {
+    return 0;
+  }
+
+  return (coberturaOrigem * 100) + (coberturaCandidato * 80) + (tokensEmComum.length * 10);
+}
+
+function encontrarMelhorCorrespondencia(texto, opcoes) {
+  if (!texto || !Array.isArray(opcoes) || !opcoes.length) {
+    return null;
+  }
+
+  let melhorOpcao = null;
+  let melhorPontuacao = 0;
+
+  opcoes.forEach(function (opcao) {
+    const candidato = typeof opcao === 'string'
+      ? opcao
+      : (opcao && (opcao.label || opcao.text || opcao.name || opcao.cad_name || opcao.value));
+
+    const pontuacao = calcularPontuacaoSimilaridade(texto, candidato);
+
+    if (pontuacao > melhorPontuacao) {
+      melhorPontuacao = pontuacao;
+      melhorOpcao = opcao;
+    }
+  });
+
+  return melhorPontuacao >= 60 ? melhorOpcao : null;
+}
+
+window.normalizarTexto = normalizarTexto;
+window.tokenizarTexto = tokenizarTexto;
+window.calcularPontuacaoSimilaridade = calcularPontuacaoSimilaridade;
+window.encontrarMelhorCorrespondencia = encontrarMelhorCorrespondencia;
+
 (function($) {
   $(document).ready(function() {
       function getUTMParams() {
@@ -1611,11 +1704,14 @@ echo <<<'JAVASCRIPT'
         return;
       }
       const unidadesCidade = unitsByCity[citySelected];
+      const unitLabel = $(this).find('option:selected').text() || '';
       if (!Array.isArray(unidadesCidade)) {
         console.error('Cidade não encontrada em unitsByCity:', citySelected);
         return;
       }
-      const unidade = unidadesCidade.find(u => u.id === unitSelected);
+      const unidade = unidadesCidade.find(function (u) {
+        return normalizarGuid(u.id) === normalizarGuid(unitSelected);
+      }) || encontrarMelhorCorrespondencia(unitLabel, unidadesCidade);
       if (!unidade || !Array.isArray(unidade.series)) {
         console.error('Unidade ou séries não encontradas:', unidade);
         $('.serie-select')
@@ -2062,6 +2158,75 @@ echo <<<'JAVASCRIPT'
     // RESTANTE DO JS: SUBMIT AGENDAMENTO, LOAD SERIES, LOAD TIMES...
     // ====================
     function loadUnits() {
+      function normalizarTextoSeguro(valor) {
+        if (typeof window.normalizarTexto === "function") {
+          return window.normalizarTexto(valor);
+        }
+
+        return String(valor || "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[–—-]/g, " ")
+          .replace(/[^\w\s]/g, " ")
+          .replace(/\b(colegio|colégio|bilingual school|school|unidade)\b/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .toLowerCase();
+      }
+
+      function encontrarMelhorChaveLocal(texto, opcoes) {
+        if (typeof window.encontrarMelhorCorrespondencia === "function") {
+          return window.encontrarMelhorCorrespondencia(texto, opcoes);
+        }
+
+        if (!texto || !Array.isArray(opcoes) || !opcoes.length) {
+          return null;
+        }
+
+        const textoNormalizado = normalizarTextoSeguro(texto);
+        let melhorOpcao = null;
+        let melhorPontuacao = 0;
+
+        opcoes.forEach(function(opcao) {
+          const candidato = String(opcao || "");
+          const candidatoNormalizado = normalizarTextoSeguro(candidato);
+
+          if (!candidatoNormalizado) {
+            return;
+          }
+
+          let pontuacao = 0;
+
+          if (textoNormalizado === candidatoNormalizado) {
+            pontuacao = 1000;
+          } else if (
+            textoNormalizado.includes(candidatoNormalizado) ||
+            candidatoNormalizado.includes(textoNormalizado)
+          ) {
+            pontuacao = 800 - Math.abs(textoNormalizado.length - candidatoNormalizado.length);
+          } else {
+            const textoTokens = textoNormalizado.split(" ").filter(Boolean);
+            const candidatoTokens = candidatoNormalizado.split(" ").filter(Boolean);
+            const tokensEmComum = textoTokens.filter(function(token) {
+              return candidatoTokens.includes(token);
+            });
+
+            if (textoTokens.length && candidatoTokens.length && tokensEmComum.length) {
+              const coberturaTexto = tokensEmComum.length / textoTokens.length;
+              const coberturaCandidato = tokensEmComum.length / candidatoTokens.length;
+              pontuacao = (coberturaTexto * 100) + (coberturaCandidato * 80) + (tokensEmComum.length * 10);
+            }
+          }
+
+          if (pontuacao > melhorPontuacao) {
+            melhorPontuacao = pontuacao;
+            melhorOpcao = opcao;
+          }
+        });
+
+        return melhorPontuacao >= 60 ? melhorOpcao : null;
+      }
+
       $.ajax({
         url: PositivoCRM.ajax_url,
         type: "POST",
@@ -2095,7 +2260,14 @@ echo <<<'JAVASCRIPT'
               if (unit.pos_mapeamentoseries) {
                 try {
                   const parsed = JSON.parse(unit.pos_mapeamentoseries);
-                  const unidade = parsed[nome] || parsed["Unidade"]; // fallback
+                  const chaveEncontrada = Object.keys(parsed).find(function (key) {
+                    return normalizarTextoSeguro(key) === normalizarTextoSeguro(nome);
+                  });
+                  const melhorChave = chaveEncontrada || (function () {
+                    const melhor = encontrarMelhorChaveLocal(nome, Object.keys(parsed));
+                    return typeof melhor === 'string' ? melhor : null;
+                  })();
+                  const unidade = parsed[nome] || (melhorChave ? parsed[melhorChave] : null) || parsed["Unidade"]; // fallback
                   if (!unidade) {
                     console.warn("Unidade não encontrada no JSON:", nome);
                     return;
@@ -2104,7 +2276,7 @@ echo <<<'JAVASCRIPT'
                   const seriesObj = unidade.Series || unidade["Séries"];
                   const ag = unidade.Agendamento || {};
                   // Corrige inconsistência de chave
-                  servico = ag.Servico || ag["Serviço"] || null;
+                  servico = ag.Servico || ag["Serviço"] || ag["Servico"] || null;
                   recurso = ag.Recurso || null;
                   if (seriesObj && typeof seriesObj === 'object') {
                     series = Object.entries(seriesObj)
@@ -2453,6 +2625,85 @@ echo <<<'JAVASCRIPT'
     unidade: null
   };
 
+  function normalizarTexto(valor) {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[–—-]/g, ' ')
+      .replace(/[^\w\s]/g, ' ')
+      .replace(/\b(colegio|colégio|bilingual school|school|unidade)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  }
+
+  function tokenizarTexto(valor) {
+    return normalizarTexto(valor)
+      .split(' ')
+      .filter(Boolean);
+  }
+
+  function calcularPontuacaoSimilaridade(origem, candidato) {
+    const origemNormalizada = normalizarTexto(origem);
+    const candidatoNormalizado = normalizarTexto(candidato);
+
+    if (!origemNormalizada || !candidatoNormalizado) {
+      return 0;
+    }
+
+    if (origemNormalizada === candidatoNormalizado) {
+      return 1000;
+    }
+
+    if (
+      origemNormalizada.includes(candidatoNormalizado) ||
+      candidatoNormalizado.includes(origemNormalizada)
+    ) {
+      return 800 - Math.abs(origemNormalizada.length - candidatoNormalizado.length);
+    }
+
+    const origemTokens = tokenizarTexto(origem);
+    const candidatoTokens = tokenizarTexto(candidato);
+
+    if (!origemTokens.length || !candidatoTokens.length) {
+      return 0;
+    }
+
+    const tokensEmComum = origemTokens.filter(token => candidatoTokens.includes(token));
+    const coberturaOrigem = tokensEmComum.length / origemTokens.length;
+    const coberturaCandidato = tokensEmComum.length / candidatoTokens.length;
+
+    if (coberturaOrigem === 0 && coberturaCandidato === 0) {
+      return 0;
+    }
+
+    return (coberturaOrigem * 100) + (coberturaCandidato * 80) + (tokensEmComum.length * 10);
+  }
+
+  function encontrarMelhorCorrespondencia(texto, opcoes) {
+    if (!texto || !Array.isArray(opcoes) || !opcoes.length) {
+      return null;
+    }
+
+    let melhorOpcao = null;
+    let melhorPontuacao = 0;
+
+    opcoes.forEach(function (opcao) {
+      const candidato = typeof opcao === 'string'
+        ? opcao
+        : (opcao && (opcao.label || opcao.text || opcao.name || opcao.cad_name || opcao.value));
+
+      const pontuacao = calcularPontuacaoSimilaridade(texto, candidato);
+
+      if (pontuacao > melhorPontuacao) {
+        melhorPontuacao = pontuacao;
+        melhorOpcao = opcao;
+      }
+    });
+
+    return melhorPontuacao >= 60 ? melhorOpcao : null;
+  }
+
   // ===============================
   // 1️⃣ Captura seleção do Jet
   // ===============================
@@ -2530,19 +2781,21 @@ echo <<<'JAVASCRIPT'
 
     if (!select || !texto) return;
 
-    const alvo = texto.trim().toLowerCase();
-
-    const option = Array.from(select.options).find(opt =>
-      opt.text.toLowerCase().includes(alvo)
-    );
+    const option = encontrarMelhorCorrespondencia(texto, Array.from(select.options).map(function (opt) {
+      return {
+        value: opt.value,
+        text: opt.text,
+        option: opt
+      };
+    }));
 
     if (!option) {
-      console.warn('❌ Opção não encontrada (contém):', texto);
+      console.warn('❌ Opção não encontrada (similaridade):', texto);
       return;
     }
 
     // Seleciona valor
-    select.value = option.value;
+    select.value = option.option.value;
 
     // 🔥 Simula interação humana
     select.focus();
@@ -2550,7 +2803,7 @@ echo <<<'JAVASCRIPT'
     select.dispatchEvent(new Event('change', { bubbles: true }));
     select.dispatchEvent(new Event('blur', { bubbles: true }));
 
-    // console.log('✅ Opção marcada (contains):', option.text);
+    // console.log('✅ Opção marcada (similaridade):', option.option.text);
   }
 
     // ===============================

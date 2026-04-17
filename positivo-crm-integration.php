@@ -4,7 +4,7 @@ require_once __DIR__.'/debug-helper.php';
  * Plugin Name: Positivo CRM Educational Integration
  * Plugin URI:  https://github.com/
  * Description: Plugin para integrar o frontend de agendamento com a API do CRM Educacional do Colégio Positivo.
- * Version:     1.1.9
+ * Version:     1.1.12
  * Author:      Mentores
  * Author URI:  https://mentores.com.br
  * License:     GPL2
